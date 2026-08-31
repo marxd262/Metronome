@@ -342,6 +342,7 @@ button {
     <label>Base (Fast) BPM <input id="practiceBaseBpm" type="number" min="20" max="400" step="1" value="120"></label>
     <label>Speed Delta % <input id="practiceDeltaPercent" type="number" min="10" max="90" step="1" value="50"></label>
     <label>Beats per Phase <input id="practiceBeatsPerPhase" type="number" min="1" step="1" value="4"></label>
+    <label>Break Length (beats) <input id="practiceBreakBeats" type="number" min="1" step="1" value="4"></label>
     <div id="practiceReadout" class="readout"></div>
   </div>
 
@@ -488,7 +489,7 @@ const DEFAULT_STATE = {
   topBar: { timeSigNum: 4, subdivision: 'none', soundStyle: 'click', volume: 80, activeTab: 'metronome', accentPattern: [true, false, false, false] },
   metronome: { bpm: 120, percent: 100 },
   ramp: { startBpm: 80, stopBpm: 140, scaleMode: 'percent', scaleAmount: 2, stepBars: 4 },
-  practice: { baseBpm: 120, deltaPercent: 50, beatsPerPhase: 4 },
+  practice: { baseBpm: 120, deltaPercent: 50, beatsPerPhase: 4, breakBeats: 4 },
 };
 
 const STORAGE_KEY = 'guitarMetronomeSettings';
@@ -518,6 +519,7 @@ function refreshAllInputsFromState() {
   document.getElementById('practiceBaseBpm').value = state.practice.baseBpm;
   document.getElementById('practiceDeltaPercent').value = state.practice.deltaPercent;
   document.getElementById('practiceBeatsPerPhase').value = state.practice.beatsPerPhase;
+  document.getElementById('practiceBreakBeats').value = state.practice.breakBeats;
 
   const validTabs = ['metronome', 'ramp', 'practice'];
   const activeTab = validTabs.includes(state.topBar.activeTab) ? state.topBar.activeTab : 'metronome';
@@ -783,9 +785,9 @@ function startPlayback() {
   }
   if (state.topBar.activeTab === 'practice') {
     practiceRuntime = {
-      sequence: buildPracticePhaseSequence(state.practice.beatsPerPhase, state.topBar.timeSigNum),
+      sequence: buildPracticePhaseSequence(state.practice.beatsPerPhase, state.practice.breakBeats),
       beatsPerPhase: state.practice.beatsPerPhase,
-      breakBeats: state.topBar.timeSigNum,
+      breakBeats: state.practice.breakBeats,
       index: 0,
     };
     updatePracticeReadout();
@@ -927,6 +929,7 @@ function bindPracticeTab() {
   const baseBpm = document.getElementById('practiceBaseBpm');
   const deltaPercent = document.getElementById('practiceDeltaPercent');
   const beatsPerPhase = document.getElementById('practiceBeatsPerPhase');
+  const breakBeats = document.getElementById('practiceBreakBeats');
 
   baseBpm.addEventListener('change', () => {
     state.practice.baseBpm = clampBpm(baseBpm.value);
@@ -943,6 +946,11 @@ function bindPracticeTab() {
   beatsPerPhase.addEventListener('change', () => {
     state.practice.beatsPerPhase = clampPositiveInt(beatsPerPhase.value, DEFAULT_STATE.practice.beatsPerPhase);
     beatsPerPhase.value = state.practice.beatsPerPhase;
+    persistState();
+  });
+  breakBeats.addEventListener('change', () => {
+    state.practice.breakBeats = clampPositiveInt(breakBeats.value, DEFAULT_STATE.practice.breakBeats);
+    breakBeats.value = state.practice.breakBeats;
     persistState();
   });
 }
