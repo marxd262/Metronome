@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guitar Practice Metronome</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 480px; margin: 2rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.25rem; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem; font-size: 0.85rem; align-items: center; }
+  #tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+  .tab-btn { flex: 1; padding: 0.5rem; cursor: pointer; background: #eee; border: 1px solid #ccc; }
+  .tab-btn.active { font-weight: bold; background: #ddd; border-bottom: 2px solid #333; }
+  .panel { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; }
+  .panel[hidden] { display: none; }
+  label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.9rem; }
+  #controls { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+  #startStop { font-size: 1.25rem; padding: 0.75rem 2rem; cursor: pointer; }
+  #beatIndicator { width: 24px; height: 24px; border-radius: 50%; background: #ccc; }
+  #beatIndicator.pulse { background: #f44; }
+  #beatIndicator.pulse.accent { background: #22c; }
+  #statusReadout, .readout { font-size: 0.85rem; color: #555; min-height: 1.2em; }
+</style>
+</head>
+<body>
+  <h1>Guitar Practice Metronome</h1>
+
+  <div id="topbar">
+    <label>Time Sig
+      <span>
+        <input id="timeSigNum" type="number" min="1" max="16" step="1" value="4" style="width:3em">
+        /
+        <select id="timeSigDen">
+          <option value="2">2</option>
+          <option value="4" selected>4</option>
+          <option value="8">8</option>
+          <option value="16">16</option>
+        </select>
+      </span>
+    </label>
+    <label>Subdivision
+      <select id="subdivision">
+        <option value="none">None</option>
+        <option value="eighths">Eighths</option>
+        <option value="triplets">Triplets</option>
+        <option value="sixteenths">Sixteenths</option>
+      </select>
+    </label>
+    <label>Sound
+      <select id="soundStyle">
+        <option value="click">Click</option>
+        <option value="beep">Beep</option>
+        <option value="wood">Wood Block</option>
+      </select>
+    </label>
+    <label>Volume
+      <input id="volume" type="range" min="0" max="100" step="1" value="80">
+    </label>
+    <button id="tapTempo" type="button">Tap Tempo</button>
+  </div>
+
+  <div id="tabs">
+    <button class="tab-btn active" data-tab="metronome" type="button">Metronome</button>
+    <button class="tab-btn" data-tab="ramp" type="button">Ramp</button>
+    <button class="tab-btn" data-tab="practice" type="button">Practice</button>
+  </div>
+
+  <div id="panel-metronome" class="panel">
+    <label>BPM
+      <input id="metronomeBpm" type="number" min="20" max="400" step="1" value="120">
+      <input id="metronomeBpmRange" type="range" min="20" max="400" step="1" value="120">
+    </label>
+    <label>% of BPM
+      <input id="metronomePercent" type="number" min="50" max="150" step="1" value="100">
+      <input id="metronomePercentRange" type="range" min="50" max="150" step="1" value="100">
+    </label>
+    <label><input id="accentFirstBeat" type="checkbox" checked> Accent first beat</label>
+  </div>
+
+  <div id="panel-ramp" class="panel" hidden>
+    <label>Start BPM <input id="rampStartBpm" type="number" min="20" max="400" step="1" value="80"></label>
+    <label>Stop BPM <input id="rampStopBpm" type="number" min="20" max="400" step="1" value="140"></label>
+    <label>Scale Mode
+      <select id="rampScaleMode">
+        <option value="percent">% per step</option>
+        <option value="fixed">Fixed BPM per step</option>
+      </select>
+    </label>
+    <label>Scale Amount <input id="rampScaleAmount" type="number" min="0.1" step="0.1" value="2"></label>
+    <label>Step Length (bars) <input id="rampStepBars" type="number" min="1" step="1" value="4"></label>
+    <div id="rampReadout" class="readout"></div>
+  </div>
+
+  <div id="panel-practice" class="panel" hidden>
+    <label>Base (Fast) BPM <input id="practiceBaseBpm" type="number" min="20" max="400" step="1" value="120"></label>
+    <label>Speed Delta % <input id="practiceDeltaPercent" type="number" min="10" max="90" step="1" value="50"></label>
+    <label>Beats per Phase <input id="practiceBeatsPerPhase" type="number" min="1" step="1" value="4"></label>
+    <div id="practiceReadout" class="readout"></div>
+  </div>
+
+  <div id="controls">
+    <button id="startStop" type="button">Start</button>
+    <div id="beatIndicator"></div>
+    <div id="statusReadout"></div>
+  </div>
+
+<script>
+// LOGIC-BEGIN
+function clampBpm(bpm) {
+  const n = Math.round(Number(bpm));
+  if (Number.isNaN(n)) return 120;
+  return Math.min(400, Math.max(20, n));
+}
+
+function clampBpmPercent(pct) {
+  const n = Math.round(Number(pct));
+  if (Number.isNaN(n)) return 100;
+  return Math.min(150, Math.max(50, n));
+}
+
+function computeEffectiveBpm(bpm, percent) {
+  return clampBpm(bpm * (percent / 100));
+}
+// LOGIC-END
+</script>
+<script>
+// App state, DOM wiring, and scheduler are added in later tasks.
+</script>
+</body>
+</html>
