@@ -75,3 +75,33 @@ test('bpmFromTapTimestamps ignores a gap larger than 2000ms', () => {
   // First two taps 5000ms apart (stale), last two 500ms apart (120 BPM)
   assert.equal(bpmFromTapTimestamps([0, 5000, 5500, 6000]), 120);
 });
+
+test('inferRampDirection detects up, down, and equal', () => {
+  const { inferRampDirection } = loadLogic(['inferRampDirection']);
+  assert.equal(inferRampDirection(80, 140), 'up');
+  assert.equal(inferRampDirection(140, 80), 'down');
+  assert.equal(inferRampDirection(100, 100), null);
+});
+
+test('computeNextRampBpm steps up by a fixed amount and clamps at stop', () => {
+  const { computeNextRampBpm } = loadLogic(['computeNextRampBpm']);
+  assert.equal(computeNextRampBpm(96, 'up', 'fixed', 5, 100), 100);
+  assert.equal(computeNextRampBpm(80, 'up', 'fixed', 5, 140), 85);
+});
+
+test('computeNextRampBpm steps down by a percentage and clamps at stop', () => {
+  const { computeNextRampBpm } = loadLogic(['computeNextRampBpm']);
+  assert.equal(computeNextRampBpm(100, 'down', 'percent', 10, 95), 95);
+  assert.equal(computeNextRampBpm(100, 'down', 'percent', 10, 50), 90);
+});
+
+test('computeNextRampBpm holds at stop when direction is null', () => {
+  const { computeNextRampBpm } = loadLogic(['computeNextRampBpm']);
+  assert.equal(computeNextRampBpm(100, null, 'fixed', 5, 100), 100);
+});
+
+test('barsToBeats multiplies bars by the time signature numerator', () => {
+  const { barsToBeats } = loadLogic(['barsToBeats']);
+  assert.equal(barsToBeats(4, 4), 16);
+  assert.equal(barsToBeats(2, 7), 14);
+});

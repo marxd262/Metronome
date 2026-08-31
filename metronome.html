@@ -150,6 +150,23 @@ function bpmFromTapTimestamps(timestamps) {
   const avg = diffs.reduce((a, b) => a + b, 0) / diffs.length;
   return clampBpm(60000 / avg);
 }
+
+function inferRampDirection(startBpm, stopBpm) {
+  if (startBpm === stopBpm) return null;
+  return startBpm < stopBpm ? 'up' : 'down';
+}
+
+function computeNextRampBpm(currentBpm, direction, scaleMode, scaleAmount, stopBpm) {
+  if (direction === null) return stopBpm;
+  const delta = scaleMode === 'percent' ? currentBpm * (scaleAmount / 100) : scaleAmount;
+  let next = direction === 'up' ? currentBpm + delta : currentBpm - delta;
+  next = direction === 'up' ? Math.min(next, stopBpm) : Math.max(next, stopBpm);
+  return Math.round(next);
+}
+
+function barsToBeats(bars, timeSigNumerator) {
+  return bars * timeSigNumerator;
+}
 // LOGIC-END
 </script>
 <script>
@@ -240,13 +257,33 @@ function flashBeatIndicator(accent) {
   setTimeout(() => el.classList.remove('pulse'), 80);
 }
 
+let rampRuntime = null;
+
 function currentModeBpm() {
+  if (state.topBar.activeTab === 'ramp') {
+    return rampRuntime.currentBpm;
+  }
   return computeEffectiveBpm(state.metronome.bpm, state.metronome.percent);
 }
 
+function updateRampReadout() {
+  document.getElementById('rampReadout').textContent =
+    `Current: ${rampRuntime.currentBpm} BPM` + (rampRuntime.direction === null ? ' (holding at target)' : '');
+}
+
 function advanceModeAfterBeat() {
-  // No-op for the metronome tab; Ramp (Task 6) and Practice (Task 7)
-  // override behavior by checking state.topBar.activeTab here.
+  if (state.topBar.activeTab !== 'ramp' || !rampRuntime) return;
+  rampRuntime.beatsIntoStep++;
+  const beatsPerStep = barsToBeats(state.ramp.stepBars, state.topBar.timeSigNum);
+  if (rampRuntime.direction !== null && rampRuntime.beatsIntoStep >= beatsPerStep) {
+    rampRuntime.currentBpm = computeNextRampBpm(
+      rampRuntime.currentBpm, rampRuntime.direction, state.ramp.scaleMode,
+      state.ramp.scaleAmount, state.ramp.stopBpm
+    );
+    rampRuntime.beatsIntoStep = 0;
+    if (rampRuntime.currentBpm === state.ramp.stopBpm) rampRuntime.direction = null;
+  }
+  updateRampReadout();
 }
 
 function scheduleBeat(time) {
@@ -285,6 +322,14 @@ function startPlayback() {
   isPlaying = true;
   beatIndexInBar = 0;
   nextNoteTime = ctx.currentTime + 0.05;
+  if (state.topBar.activeTab === 'ramp') {
+    rampRuntime = {
+      currentBpm: clampBpm(state.ramp.startBpm),
+      direction: inferRampDirection(state.ramp.startBpm, state.ramp.stopBpm),
+      beatsIntoStep: 0,
+    };
+    updateRampReadout();
+  }
   schedulerTick();
   document.getElementById('startStop').textContent = 'Stop';
 }
@@ -370,6 +415,35 @@ function switchTab(tabName) {
 document.querySelectorAll('.tab-btn').forEach((btn) => {
   btn.addEventListener('click', () => switchTab(btn.dataset.tab));
 });
+
+function bindRampTab() {
+  const startBpm = document.getElementById('rampStartBpm');
+  const stopBpm = document.getElementById('rampStopBpm');
+  const scaleMode = document.getElementById('rampScaleMode');
+  const scaleAmount = document.getElementById('rampScaleAmount');
+  const stepBars = document.getElementById('rampStepBars');
+
+  startBpm.addEventListener('change', () => {
+    state.ramp.startBpm = clampBpm(startBpm.value);
+    startBpm.value = state.ramp.startBpm;
+  });
+  stopBpm.addEventListener('change', () => {
+    state.ramp.stopBpm = clampBpm(stopBpm.value);
+    stopBpm.value = state.ramp.stopBpm;
+  });
+  scaleMode.addEventListener('change', () => { state.ramp.scaleMode = scaleMode.value; });
+  scaleAmount.addEventListener('change', () => {
+    const n = Number(scaleAmount.value);
+    state.ramp.scaleAmount = Number.isFinite(n) && n > 0 ? n : DEFAULT_STATE.ramp.scaleAmount;
+    scaleAmount.value = state.ramp.scaleAmount;
+  });
+  stepBars.addEventListener('change', () => {
+    state.ramp.stepBars = clampPositiveInt(stepBars.value, DEFAULT_STATE.ramp.stepBars);
+    stepBars.value = state.ramp.stepBars;
+  });
+}
+
+bindRampTab();
 </script>
 </body>
 </html>
