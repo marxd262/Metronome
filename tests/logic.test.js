@@ -234,3 +234,24 @@ test('practiceSegmentIndex handles a single beat per phase and a single break be
   assert.equal(practiceSegmentIndex(2, 1, 1), 2);
   assert.equal(practiceSegmentIndex(3, 1, 1), 3);
 });
+
+test('practicePhasePosition returns the 0-based position within the current phase', () => {
+  const { practicePhasePosition } = loadLogic(['practicePhasePosition']);
+  // beatsPerPhase=2, breakBeats=3 -> slow[0,1] break[2,3,4] fast[5,6] break[7,8,9]
+  assert.equal(practicePhasePosition(0, 2, 3), 0);
+  assert.equal(practicePhasePosition(1, 2, 3), 1);
+  assert.equal(practicePhasePosition(2, 2, 3), 0);
+  assert.equal(practicePhasePosition(4, 2, 3), 2);
+  assert.equal(practicePhasePosition(5, 2, 3), 0);
+  assert.equal(practicePhasePosition(6, 2, 3), 1);
+  assert.equal(practicePhasePosition(7, 2, 3), 0);
+  assert.equal(practicePhasePosition(9, 2, 3), 2);
+});
+
+test('practicePhasePosition handles a single beat per phase and a single break beat', () => {
+  const { practicePhasePosition } = loadLogic(['practicePhasePosition']);
+  assert.equal(practicePhasePosition(0, 1, 1), 0);
+  assert.equal(practicePhasePosition(1, 1, 1), 0);
+  assert.equal(practicePhasePosition(2, 1, 1), 0);
+  assert.equal(practicePhasePosition(3, 1, 1), 0);
+});

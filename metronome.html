@@ -482,6 +482,13 @@ function practiceSegmentIndex(sequenceIndex, beatsPerPhase, breakBeats) {
   if (sequenceIndex < beatsPerPhase + breakBeats + beatsPerPhase) return 2;
   return 3;
 }
+
+function practicePhasePosition(sequenceIndex, beatsPerPhase, breakBeats) {
+  if (sequenceIndex < beatsPerPhase) return sequenceIndex;
+  if (sequenceIndex < beatsPerPhase + breakBeats) return sequenceIndex - beatsPerPhase;
+  if (sequenceIndex < beatsPerPhase + breakBeats + beatsPerPhase) return sequenceIndex - (beatsPerPhase + breakBeats);
+  return sequenceIndex - (beatsPerPhase + breakBeats + beatsPerPhase);
+}
 // LOGIC-END
 </script>
 <script>
