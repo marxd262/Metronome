@@ -121,10 +121,66 @@ function clampBpmPercent(pct) {
 function computeEffectiveBpm(bpm, percent) {
   return clampBpm(bpm * (percent / 100));
 }
+
+function subdivisionCount(subdivision) {
+  const table = { none: 1, eighths: 2, triplets: 3, sixteenths: 4 };
+  return table[subdivision] || 1;
+}
+
+function beatIntervalSeconds(bpm) {
+  return 60 / bpm;
+}
+
+function subdivisionIntervalSeconds(bpm, subdivision) {
+  return beatIntervalSeconds(bpm) / subdivisionCount(subdivision);
+}
+
+function isAccentBeat(beatIndexInBar) {
+  return beatIndexInBar === 0;
+}
 // LOGIC-END
 </script>
 <script>
-// App state, DOM wiring, and scheduler are added in later tasks.
+const DEFAULT_STATE = {
+  topBar: { timeSigNum: 4, timeSigDen: 4, subdivision: 'none', soundStyle: 'click', volume: 80, activeTab: 'metronome' },
+  metronome: { bpm: 120, percent: 100, accentFirstBeat: true },
+  ramp: { startBpm: 80, stopBpm: 140, scaleMode: 'percent', scaleAmount: 2, stepBars: 4 },
+  practice: { baseBpm: 120, deltaPercent: 50, beatsPerPhase: 4 },
+};
+
+const state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+
+function clampPositiveInt(value, fallback) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n) || n < 1) return fallback;
+  return n;
+}
+
+function bindTopBar() {
+  const timeSigNum = document.getElementById('timeSigNum');
+  const timeSigDen = document.getElementById('timeSigDen');
+  const subdivision = document.getElementById('subdivision');
+  const soundStyle = document.getElementById('soundStyle');
+  const volume = document.getElementById('volume');
+
+  timeSigNum.addEventListener('input', () => {
+    state.topBar.timeSigNum = clampPositiveInt(timeSigNum.value, DEFAULT_STATE.topBar.timeSigNum);
+  });
+  timeSigDen.addEventListener('change', () => {
+    state.topBar.timeSigDen = Number(timeSigDen.value);
+  });
+  subdivision.addEventListener('change', () => {
+    state.topBar.subdivision = subdivision.value;
+  });
+  soundStyle.addEventListener('change', () => {
+    state.topBar.soundStyle = soundStyle.value;
+  });
+  volume.addEventListener('input', () => {
+    state.topBar.volume = Number(volume.value);
+  });
+}
+
+bindTopBar();
 </script>
 </body>
 </html>
