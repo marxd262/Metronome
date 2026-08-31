@@ -26,17 +26,8 @@
   <h1>Guitar Practice Metronome</h1>
 
   <div id="topbar">
-    <label>Time Sig
-      <span>
-        <input id="timeSigNum" type="number" min="1" max="16" step="1" value="4" style="width:3em">
-        /
-        <select id="timeSigDen">
-          <option value="2">2</option>
-          <option value="4" selected>4</option>
-          <option value="8">8</option>
-          <option value="16">16</option>
-        </select>
-      </span>
+    <label>Beats per Bar
+      <input id="timeSigNum" type="number" min="1" max="16" step="1" value="4" style="width:3em">
     </label>
     <label>Subdivision
       <select id="subdivision">
@@ -161,7 +152,16 @@ function computeNextRampBpm(currentBpm, direction, scaleMode, scaleAmount, stopB
   const delta = scaleMode === 'percent' ? currentBpm * (scaleAmount / 100) : scaleAmount;
   let next = direction === 'up' ? currentBpm + delta : currentBpm - delta;
   next = direction === 'up' ? Math.min(next, stopBpm) : Math.max(next, stopBpm);
-  return Math.round(next);
+  let rounded = Math.round(next);
+  // A tiny step (e.g. 2% of a low BPM) can round back to currentBpm, stalling the
+  // ramp forever since beatsIntoStep resets without the tempo ever changing.
+  // Force at least a 1-BPM move toward the target, still clamped at stopBpm.
+  if (direction === 'up' && rounded <= currentBpm) {
+    rounded = Math.min(currentBpm + 1, stopBpm);
+  } else if (direction === 'down' && rounded >= currentBpm) {
+    rounded = Math.max(currentBpm - 1, stopBpm);
+  }
+  return rounded;
 }
 
 function barsToBeats(bars, timeSigNumerator) {
@@ -169,7 +169,7 @@ function barsToBeats(bars, timeSigNumerator) {
 }
 
 function computeSlowBpm(baseBpm, deltaPercent) {
-  return Math.max(1, Math.round(baseBpm * (1 - deltaPercent / 100)));
+  return clampBpm(baseBpm * (1 - deltaPercent / 100));
 }
 
 function buildPracticePhaseSequence(beatsPerPhase) {
@@ -215,7 +215,7 @@ function clampPositiveInt(value, fallback) {
 </script>
 <script>
 const DEFAULT_STATE = {
-  topBar: { timeSigNum: 4, timeSigDen: 4, subdivision: 'none', soundStyle: 'click', volume: 80, activeTab: 'metronome' },
+  topBar: { timeSigNum: 4, subdivision: 'none', soundStyle: 'click', volume: 80, activeTab: 'metronome' },
   metronome: { bpm: 120, percent: 100, accentFirstBeat: true },
   ramp: { startBpm: 80, stopBpm: 140, scaleMode: 'percent', scaleAmount: 2, stepBars: 4 },
   practice: { baseBpm: 120, deltaPercent: 50, beatsPerPhase: 4 },
@@ -230,7 +230,6 @@ function persistState() {
 
 function refreshAllInputsFromState() {
   document.getElementById('timeSigNum').value = state.topBar.timeSigNum;
-  document.getElementById('timeSigDen').value = state.topBar.timeSigDen;
   document.getElementById('subdivision').value = state.topBar.subdivision;
   document.getElementById('soundStyle').value = state.topBar.soundStyle;
   document.getElementById('volume').value = state.topBar.volume;
@@ -258,17 +257,12 @@ function refreshAllInputsFromState() {
 
 function bindTopBar() {
   const timeSigNum = document.getElementById('timeSigNum');
-  const timeSigDen = document.getElementById('timeSigDen');
   const subdivision = document.getElementById('subdivision');
   const soundStyle = document.getElementById('soundStyle');
   const volume = document.getElementById('volume');
 
   timeSigNum.addEventListener('input', () => {
     state.topBar.timeSigNum = clampPositiveInt(timeSigNum.value, DEFAULT_STATE.topBar.timeSigNum);
-    persistState();
-  });
-  timeSigDen.addEventListener('change', () => {
-    state.topBar.timeSigDen = Number(timeSigDen.value);
     persistState();
   });
   subdivision.addEventListener('change', () => {
@@ -342,7 +336,8 @@ function currentModeBpm() {
     return rampRuntime.currentBpm;
   }
   if (state.topBar.activeTab === 'practice') {
-    return bpmForPhase(practiceRuntime.sequence[practiceRuntime.index], state.practice.baseBpm, practiceRuntime.slowBpm);
+    const slowBpm = computeSlowBpm(state.practice.baseBpm, state.practice.deltaPercent);
+    return bpmForPhase(practiceRuntime.sequence[practiceRuntime.index], state.practice.baseBpm, slowBpm);
   }
   return computeEffectiveBpm(state.metronome.bpm, state.metronome.percent);
 }
@@ -424,7 +419,6 @@ function startPlayback() {
     practiceRuntime = {
       sequence: buildPracticePhaseSequence(state.practice.beatsPerPhase),
       index: 0,
-      slowBpm: computeSlowBpm(state.practice.baseBpm, state.practice.deltaPercent),
     };
     updatePracticeReadout();
   }
@@ -440,6 +434,14 @@ function stopPlayback() {
 }
 
 document.getElementById('startStop').addEventListener('click', () => {
+  if (isPlaying) stopPlayback(); else startPlayback();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space') return;
+  const tag = document.activeElement && document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  e.preventDefault();
   if (isPlaying) stopPlayback(); else startPlayback();
 });
 

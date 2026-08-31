@@ -100,6 +100,12 @@ test('computeNextRampBpm holds at stop when direction is null', () => {
   assert.equal(computeNextRampBpm(100, null, 'fixed', 5, 100), 100);
 });
 
+test('computeNextRampBpm forces at least a 1 BPM move when the step rounds to zero', () => {
+  const { computeNextRampBpm } = loadLogic(['computeNextRampBpm']);
+  // 2% of 20 BPM is 0.4, which rounds back down to 20 and would stall forever.
+  assert.equal(computeNextRampBpm(20, 'up', 'percent', 2, 400), 21);
+});
+
 test('barsToBeats multiplies bars by the time signature numerator', () => {
   const { barsToBeats } = loadLogic(['barsToBeats']);
   assert.equal(barsToBeats(4, 4), 16);
@@ -110,6 +116,12 @@ test('computeSlowBpm applies the delta percent below base', () => {
   const { computeSlowBpm } = loadLogic(['computeSlowBpm']);
   assert.equal(computeSlowBpm(120, 50), 60);
   assert.equal(computeSlowBpm(120, 25), 90);
+});
+
+test('computeSlowBpm clamps to the 20-400 BPM range instead of flooring at 1', () => {
+  const { computeSlowBpm } = loadLogic(['computeSlowBpm']);
+  // 20 * (1 - 0.9) = 2, which is below the app's documented 20-400 BPM range.
+  assert.equal(computeSlowBpm(20, 90), 20);
 });
 
 test('buildPracticePhaseSequence builds slow/break/fast/break cycle', () => {
