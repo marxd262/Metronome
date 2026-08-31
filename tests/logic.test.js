@@ -158,3 +158,16 @@ test('deserializeSettings falls back to defaults on missing input', () => {
   const defaults = { metronome: { bpm: 120 } };
   assert.deepEqual(deserializeSettings(null, defaults), { metronome: { bpm: 120 } });
 });
+
+test('clampPositiveInt returns the fallback for non-positive or non-numeric input', () => {
+  const { clampPositiveInt } = loadLogic(['clampPositiveInt']);
+  assert.equal(clampPositiveInt(0, 4), 4);
+  assert.equal(clampPositiveInt(-3, 4), 4);
+  assert.equal(clampPositiveInt('abc', 4), 4);
+});
+
+test('clampPositiveInt rounds and passes through positive input', () => {
+  const { clampPositiveInt } = loadLogic(['clampPositiveInt']);
+  assert.equal(clampPositiveInt(3.6, 4), 4);
+  assert.equal(clampPositiveInt(7, 4), 7);
+});

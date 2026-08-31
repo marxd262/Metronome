@@ -205,6 +205,12 @@ function deserializeSettings(json, defaults) {
   }
   return merged;
 }
+
+function clampPositiveInt(value, fallback) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n) || n < 1) return fallback;
+  return n;
+}
 // LOGIC-END
 </script>
 <script>
@@ -248,12 +254,6 @@ function refreshAllInputsFromState() {
   const validTabs = ['metronome', 'ramp', 'practice'];
   const activeTab = validTabs.includes(state.topBar.activeTab) ? state.topBar.activeTab : 'metronome';
   switchTab(activeTab);
-}
-
-function clampPositiveInt(value, fallback) {
-  const n = Math.round(Number(value));
-  if (!Number.isFinite(n) || n < 1) return fallback;
-  return n;
 }
 
 function bindTopBar() {
