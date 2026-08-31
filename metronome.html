@@ -90,6 +90,27 @@ h1 {
 
 .panel[hidden] { display: none; }
 
+#heroZone {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+#heroBpm {
+  font-size: 4rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+#heroBpmLabel {
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-top: 0.35rem;
+}
+
 label {
   display: flex;
   flex-direction: column;
@@ -231,15 +252,21 @@ button {
 #startStop:active { transform: scale(0.98); }
 
 #beatIndicator {
-  width: 20px;
-  height: 20px;
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.beat-dot {
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: var(--divider);
   transition: background-color 0.05s ease;
 }
 
-#beatIndicator.pulse { background: var(--accent); }
-#beatIndicator.pulse.accent { background: var(--accent-beat); }
+.beat-dot.pulse { background: var(--accent); }
+.beat-dot.pulse.accent { background: var(--accent-beat); }
 
 #statusReadout,
 .readout {
@@ -282,6 +309,11 @@ button {
     <button class="tab-btn active" data-tab="metronome" type="button">Metronome</button>
     <button class="tab-btn" data-tab="ramp" type="button">Ramp</button>
     <button class="tab-btn" data-tab="practice" type="button">Practice</button>
+  </div>
+
+  <div id="heroZone">
+    <div id="heroBpm">120</div>
+    <div id="heroBpmLabel">BPM</div>
   </div>
 
   <div id="panel-metronome" class="panel">
@@ -491,6 +523,7 @@ function bindTopBar() {
 
   timeSigNum.addEventListener('input', () => {
     state.topBar.timeSigNum = clampPositiveInt(timeSigNum.value, DEFAULT_STATE.topBar.timeSigNum);
+    renderBeatDots();
     persistState();
   });
   subdivision.addEventListener('change', () => {
@@ -548,11 +581,24 @@ function scheduleClick(time, accent, isSubdivision) {
   osc.stop(time + 0.06);
 }
 
-function flashBeatIndicator(accent) {
-  const el = document.getElementById('beatIndicator');
-  el.classList.add('pulse');
-  el.classList.toggle('accent', accent);
-  setTimeout(() => el.classList.remove('pulse'), 80);
+function flashBeatIndicator(beatIndex, accent) {
+  const dots = document.getElementById('beatIndicator').children;
+  const dot = dots[beatIndex];
+  if (!dot) return;
+  dot.classList.add('pulse');
+  dot.classList.toggle('accent', accent);
+  setTimeout(() => dot.classList.remove('pulse'), 80);
+}
+
+function renderBeatDots() {
+  const container = document.getElementById('beatIndicator');
+  container.innerHTML = '';
+  const n = state.topBar.timeSigNum;
+  for (let i = 0; i < n; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'beat-dot';
+    container.appendChild(dot);
+  }
 }
 
 let rampRuntime = null;
@@ -580,6 +626,26 @@ function updatePracticeReadout() {
   document.getElementById('practiceReadout').textContent = `Phase: ${phase.toUpperCase()}`;
 }
 
+function updateHeroBpm(explicitBpm) {
+  const el = document.getElementById('heroBpm');
+  let bpm = explicitBpm;
+  if (bpm === undefined) {
+    if (state.topBar.activeTab === 'ramp') {
+      bpm = rampRuntime ? rampRuntime.currentBpm : clampBpm(state.ramp.startBpm);
+    } else if (state.topBar.activeTab === 'practice') {
+      if (practiceRuntime) {
+        const slowBpm = computeSlowBpm(state.practice.baseBpm, state.practice.deltaPercent);
+        bpm = bpmForPhase(practiceRuntime.sequence[practiceRuntime.index], state.practice.baseBpm, slowBpm);
+      } else {
+        bpm = clampBpm(state.practice.baseBpm);
+      }
+    } else {
+      bpm = computeEffectiveBpm(state.metronome.bpm, state.metronome.percent);
+    }
+  }
+  el.textContent = bpm;
+}
+
 function advanceModeAfterBeat() {
   if (state.topBar.activeTab === 'ramp' && rampRuntime) {
     rampRuntime.beatsIntoStep++;
@@ -601,9 +667,10 @@ function advanceModeAfterBeat() {
 
 function scheduleBeat(time) {
   const bpm = currentModeBpm();
+  const beatIndex = beatIndexInBar;
   const accent = state.topBar.activeTab === 'metronome'
     && state.metronome.accentFirstBeat
-    && isAccentBeat(beatIndexInBar);
+    && isAccentBeat(beatIndex);
   scheduleClick(time, accent, false);
 
   const subCount = subdivisionCount(state.topBar.subdivision);
@@ -613,7 +680,10 @@ function scheduleBeat(time) {
   }
 
   const ctx = ensureAudioContext();
-  setTimeout(() => flashBeatIndicator(accent), Math.max(0, (time - ctx.currentTime) * 1000));
+  setTimeout(() => {
+    flashBeatIndicator(beatIndex, accent);
+    updateHeroBpm(bpm);
+  }, Math.max(0, (time - ctx.currentTime) * 1000));
 
   beatIndexInBar = (beatIndexInBar + 1) % state.topBar.timeSigNum;
   advanceModeAfterBeat();
@@ -684,11 +754,13 @@ function bindMetronomeTab() {
     state.metronome.bpm = clampBpm(value);
     bpm.value = state.metronome.bpm;
     bpmRange.value = state.metronome.bpm;
+    updateHeroBpm();
   }
   function setPercent(value) {
     state.metronome.percent = clampBpmPercent(value);
     percent.value = state.metronome.percent;
     percentRange.value = state.metronome.percent;
+    updateHeroBpm();
   }
 
   bpm.addEventListener('change', () => { setBpm(bpm.value); persistState(); });
@@ -726,6 +798,7 @@ document.getElementById('tapTempo').addEventListener('click', () => {
   if (field.key === 'metronome') {
     document.getElementById('metronomeBpmRange').value = bpm;
   }
+  updateHeroBpm();
   persistState();
 });
 
@@ -740,6 +813,7 @@ function switchTab(tabName) {
   document.getElementById('panel-metronome').hidden = tabName !== 'metronome';
   document.getElementById('panel-ramp').hidden = tabName !== 'ramp';
   document.getElementById('panel-practice').hidden = tabName !== 'practice';
+  updateHeroBpm();
 }
 
 document.querySelectorAll('.tab-btn').forEach((btn) => {
@@ -756,6 +830,7 @@ function bindRampTab() {
   startBpm.addEventListener('change', () => {
     state.ramp.startBpm = clampBpm(startBpm.value);
     startBpm.value = state.ramp.startBpm;
+    updateHeroBpm();
     persistState();
   });
   stopBpm.addEventListener('change', () => {
@@ -787,6 +862,7 @@ function bindPracticeTab() {
   baseBpm.addEventListener('change', () => {
     state.practice.baseBpm = clampBpm(baseBpm.value);
     baseBpm.value = state.practice.baseBpm;
+    updateHeroBpm();
     persistState();
   });
   deltaPercent.addEventListener('change', () => {
@@ -805,6 +881,7 @@ function bindPracticeTab() {
 bindPracticeTab();
 
 refreshAllInputsFromState();
+renderBeatDots();
 </script>
 </body>
 </html>
