@@ -611,6 +611,7 @@ function flashBeatIndicator(beatIndex, accent) {
 
 function renderBeatDots() {
   const container = document.getElementById('beatIndicator');
+  container.removeAttribute('aria-hidden');
   container.innerHTML = '';
   const n = state.topBar.timeSigNum;
   for (let i = 0; i < n; i++) {
@@ -621,6 +622,17 @@ function renderBeatDots() {
     container.appendChild(dot);
   }
   updateAccentDotStyles();
+}
+
+function renderPracticeProgressDots(count) {
+  const container = document.getElementById('beatIndicator');
+  container.setAttribute('aria-hidden', 'true');
+  container.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'beat-dot';
+    container.appendChild(dot);
+  }
 }
 
 function toggleAccent(index) {
@@ -734,9 +746,8 @@ function advanceModeAfterBeat() {
 function scheduleBeat(time) {
   const bpm = currentModeBpm();
   const beatIndex = beatIndexInBar;
-  const isPracticeBreak = state.topBar.activeTab === 'practice'
-    && practiceRuntime
-    && practiceRuntime.sequence[practiceRuntime.index] === 'break';
+  const isPracticeMode = state.topBar.activeTab === 'practice' && practiceRuntime;
+  const isPracticeBreak = isPracticeMode && practiceRuntime.sequence[practiceRuntime.index] === 'break';
   const accent = !isPracticeBreak && isAccentBeat(beatIndex, state.topBar.accentPattern);
   scheduleClick(time, accent, false);
 
@@ -749,13 +760,22 @@ function scheduleBeat(time) {
   const rampDisplay = (state.topBar.activeTab === 'ramp' && rampRuntime)
     ? { currentBpm: rampRuntime.currentBpm, direction: rampRuntime.direction }
     : null;
-  const practiceSegment = (state.topBar.activeTab === 'practice' && practiceRuntime)
+  const practiceSegment = isPracticeMode
     ? practiceSegmentIndex(practiceRuntime.index, practiceRuntime.beatsPerPhase, practiceRuntime.breakBeats)
+    : null;
+  const dotIndex = isPracticeMode
+    ? practicePhasePosition(practiceRuntime.index, practiceRuntime.beatsPerPhase, practiceRuntime.breakBeats)
+    : beatIndex;
+  const dotCount = isPracticeMode
+    ? (isPracticeBreak ? practiceRuntime.breakBeats : practiceRuntime.beatsPerPhase)
     : null;
 
   const ctx = ensureAudioContext();
   setTimeout(() => {
-    flashBeatIndicator(beatIndex, accent);
+    if (dotCount !== null && document.getElementById('beatIndicator').children.length !== dotCount) {
+      renderPracticeProgressDots(dotCount);
+    }
+    flashBeatIndicator(dotIndex, accent);
     updateHeroBpm(bpm);
     if (!isPlaying) return;
     if (rampDisplay) updateRampReadout(rampDisplay);
@@ -797,6 +817,7 @@ function startPlayback() {
       breakBeats: state.practice.breakBeats,
       index: 0,
     };
+    renderPracticeProgressDots(practiceRuntime.beatsPerPhase);
     updatePracticeReadout();
   }
   schedulerTick();
@@ -809,6 +830,7 @@ function stopPlayback() {
   clearTimeout(schedulerTimerId);
   document.getElementById('startStop').textContent = 'Start';
   updatePracticeReadout();
+  if (state.topBar.activeTab === 'practice') renderBeatDots();
 }
 
 document.getElementById('startStop').addEventListener('click', () => {
