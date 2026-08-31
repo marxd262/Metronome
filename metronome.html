@@ -121,11 +121,6 @@ label {
   color: var(--text-muted);
 }
 
-label:has(input[type="checkbox"]) {
-  flex-direction: row;
-  align-items: center;
-}
-
 input[type="number"],
 select {
   background: var(--panel);
@@ -190,38 +185,6 @@ input[type="range"]::-moz-range-track {
   background: var(--divider);
 }
 
-input[type="checkbox"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 1.15rem;
-  height: 1.15rem;
-  border: 1px solid var(--divider);
-  border-radius: 4px;
-  background: var(--panel);
-  display: inline-block;
-  vertical-align: middle;
-  margin-right: 0.5rem;
-  position: relative;
-  cursor: pointer;
-}
-
-input[type="checkbox"]:checked {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-
-input[type="checkbox"]:checked::after {
-  content: "";
-  position: absolute;
-  left: 4px;
-  top: 1px;
-  width: 4px;
-  height: 8px;
-  border: solid var(--bg);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-
 button {
   font: inherit;
   cursor: pointer;
@@ -268,19 +231,22 @@ button {
 #beatIndicator {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.6rem;
   justify-content: center;
   margin-bottom: 1rem;
 }
 
 .beat-dot {
-  width: 10px;
-  height: 10px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 2px solid transparent;
   border-radius: 50%;
   background: var(--dot-idle);
-  transition: background-color 0.05s ease;
+  transition: background-color 0.05s ease, border-color 0.15s ease;
 }
 
+.beat-dot.accented { border-color: var(--accent-beat); }
 .beat-dot.pulse { background: var(--accent); }
 .beat-dot.pulse.accent { background: var(--accent-beat); }
 
@@ -328,7 +294,7 @@ button {
   </div>
 
   <div id="heroZone">
-    <div id="beatIndicator" aria-hidden="true"></div>
+    <div id="beatIndicator"></div>
     <div id="heroBpm">120</div>
     <div id="heroBpmLabel">BPM</div>
   </div>
@@ -342,7 +308,6 @@ button {
       <input id="metronomePercent" type="number" min="50" max="150" step="1" value="100">
       <input id="metronomePercentRange" type="range" min="50" max="150" step="1" value="100">
     </label>
-    <label><input id="accentFirstBeat" type="checkbox" checked> Accent first beat</label>
   </div>
 
   <div id="panel-ramp" class="panel" hidden>
@@ -402,8 +367,8 @@ function subdivisionIntervalSeconds(bpm, subdivision) {
   return beatIntervalSeconds(bpm) / subdivisionCount(subdivision);
 }
 
-function isAccentBeat(beatIndexInBar) {
-  return beatIndexInBar === 0;
+function isAccentBeat(beatIndexInBar, accentPattern) {
+  return Boolean(accentPattern && accentPattern[beatIndexInBar]);
 }
 
 function bpmFromTapTimestamps(timestamps) {
@@ -506,8 +471,8 @@ function practiceSegmentIndex(sequenceIndex, beatsPerPhase, breakBeats) {
 </script>
 <script>
 const DEFAULT_STATE = {
-  topBar: { timeSigNum: 4, subdivision: 'none', soundStyle: 'click', volume: 80, activeTab: 'metronome' },
-  metronome: { bpm: 120, percent: 100, accentFirstBeat: true },
+  topBar: { timeSigNum: 4, subdivision: 'none', soundStyle: 'click', volume: 80, activeTab: 'metronome', accentPattern: [true, false, false, false] },
+  metronome: { bpm: 120, percent: 100 },
   ramp: { startBpm: 80, stopBpm: 140, scaleMode: 'percent', scaleAmount: 2, stepBars: 4 },
   practice: { baseBpm: 120, deltaPercent: 50, beatsPerPhase: 4 },
 };
@@ -529,7 +494,6 @@ function refreshAllInputsFromState() {
   document.getElementById('metronomeBpmRange').value = state.metronome.bpm;
   document.getElementById('metronomePercent').value = state.metronome.percent;
   document.getElementById('metronomePercentRange').value = state.metronome.percent;
-  document.getElementById('accentFirstBeat').checked = state.metronome.accentFirstBeat;
 
   document.getElementById('rampStartBpm').value = state.ramp.startBpm;
   document.getElementById('rampStopBpm').value = state.ramp.stopBpm;
@@ -554,6 +518,7 @@ function bindTopBar() {
 
   timeSigNum.addEventListener('input', () => {
     state.topBar.timeSigNum = clampPositiveInt(timeSigNum.value, DEFAULT_STATE.topBar.timeSigNum);
+    state.topBar.accentPattern = resizeAccentPattern(state.topBar.accentPattern, state.topBar.timeSigNum);
     renderBeatDots();
     persistState();
   });
@@ -626,10 +591,32 @@ function renderBeatDots() {
   container.innerHTML = '';
   const n = state.topBar.timeSigNum;
   for (let i = 0; i < n; i++) {
-    const dot = document.createElement('div');
+    const dot = document.createElement('button');
+    dot.type = 'button';
     dot.className = 'beat-dot';
+    dot.addEventListener('click', () => toggleAccent(i));
     container.appendChild(dot);
   }
+  updateAccentDotStyles();
+}
+
+function toggleAccent(index) {
+  const pattern = state.topBar.accentPattern.slice();
+  pattern[index] = !pattern[index];
+  state.topBar.accentPattern = pattern;
+  updateAccentDotStyles();
+  persistState();
+}
+
+function updateAccentDotStyles() {
+  const dots = document.getElementById('beatIndicator').children;
+  state.topBar.accentPattern.forEach((accented, i) => {
+    const dot = dots[i];
+    if (!dot) return;
+    dot.classList.toggle('accented', accented);
+    dot.setAttribute('aria-pressed', String(accented));
+    dot.setAttribute('aria-label', `Beat ${i + 1}, ${accented ? 'accented' : 'not accented'}`);
+  });
 }
 
 let rampRuntime = null;
@@ -699,9 +686,7 @@ function advanceModeAfterBeat() {
 function scheduleBeat(time) {
   const bpm = currentModeBpm();
   const beatIndex = beatIndexInBar;
-  const accent = state.topBar.activeTab === 'metronome'
-    && state.metronome.accentFirstBeat
-    && isAccentBeat(beatIndex);
+  const accent = isAccentBeat(beatIndex, state.topBar.accentPattern);
   scheduleClick(time, accent, false);
 
   const subCount = subdivisionCount(state.topBar.subdivision);
@@ -779,7 +764,6 @@ function bindMetronomeTab() {
   const bpmRange = document.getElementById('metronomeBpmRange');
   const percent = document.getElementById('metronomePercent');
   const percentRange = document.getElementById('metronomePercentRange');
-  const accent = document.getElementById('accentFirstBeat');
 
   function setBpm(value) {
     state.metronome.bpm = clampBpm(value);
@@ -798,7 +782,6 @@ function bindMetronomeTab() {
   bpmRange.addEventListener('input', () => { setBpm(bpmRange.value); persistState(); });
   percent.addEventListener('change', () => { setPercent(percent.value); persistState(); });
   percentRange.addEventListener('input', () => { setPercent(percentRange.value); persistState(); });
-  accent.addEventListener('change', () => { state.metronome.accentFirstBeat = accent.checked; persistState(); });
 }
 
 bindMetronomeTab();
@@ -912,6 +895,7 @@ function bindPracticeTab() {
 bindPracticeTab();
 
 refreshAllInputsFromState();
+state.topBar.accentPattern = resizeAccentPattern(state.topBar.accentPattern, state.topBar.timeSigNum);
 renderBeatDots();
 </script>
 </body>

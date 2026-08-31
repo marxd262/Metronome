@@ -51,11 +51,17 @@ test('subdivisionIntervalSeconds divides the beat interval', () => {
   assert.equal(subdivisionIntervalSeconds(60, 'none'), 1);
 });
 
-test('isAccentBeat is true only for beat index 0', () => {
+test('isAccentBeat reads the accent flag for that beat position from the pattern', () => {
   const { isAccentBeat } = loadLogic(['isAccentBeat']);
-  assert.equal(isAccentBeat(0), true);
-  assert.equal(isAccentBeat(1), false);
-  assert.equal(isAccentBeat(3), false);
+  assert.equal(isAccentBeat(0, [true, false, true, false]), true);
+  assert.equal(isAccentBeat(1, [true, false, true, false]), false);
+  assert.equal(isAccentBeat(2, [true, false, true, false]), true);
+});
+
+test('isAccentBeat returns false for an out-of-range index or a missing pattern', () => {
+  const { isAccentBeat } = loadLogic(['isAccentBeat']);
+  assert.equal(isAccentBeat(5, [true, false]), false);
+  assert.equal(isAccentBeat(0, undefined), false);
 });
 
 test('bpmFromTapTimestamps returns null with fewer than 2 taps', () => {
