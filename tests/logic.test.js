@@ -130,3 +130,31 @@ test('bpmForPhase returns base for fast and slow bpm for slow/break', () => {
   assert.equal(bpmForPhase('slow', 120, 60), 60);
   assert.equal(bpmForPhase('break', 120, 60), 60);
 });
+
+test('serializeSettings round-trips through JSON', () => {
+  const { serializeSettings } = loadLogic(['serializeSettings']);
+  const state = { metronome: { bpm: 100 } };
+  assert.equal(serializeSettings(state), JSON.stringify(state));
+});
+
+test('deserializeSettings merges saved values over defaults', () => {
+  const { deserializeSettings } = loadLogic(['deserializeSettings']);
+  const defaults = { metronome: { bpm: 120, percent: 100 }, ramp: { startBpm: 80 } };
+  const saved = JSON.stringify({ metronome: { bpm: 90 } });
+  assert.deepEqual(deserializeSettings(saved, defaults), {
+    metronome: { bpm: 90, percent: 100 },
+    ramp: { startBpm: 80 },
+  });
+});
+
+test('deserializeSettings falls back to defaults on invalid JSON', () => {
+  const { deserializeSettings } = loadLogic(['deserializeSettings']);
+  const defaults = { metronome: { bpm: 120 } };
+  assert.deepEqual(deserializeSettings('not json', defaults), { metronome: { bpm: 120 } });
+});
+
+test('deserializeSettings falls back to defaults on missing input', () => {
+  const { deserializeSettings } = loadLogic(['deserializeSettings']);
+  const defaults = { metronome: { bpm: 120 } };
+  assert.deepEqual(deserializeSettings(null, defaults), { metronome: { bpm: 120 } });
+});

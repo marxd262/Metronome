@@ -184,6 +184,27 @@ function buildPracticePhaseSequence(beatsPerPhase) {
 function bpmForPhase(phase, baseBpm, slowBpm) {
   return phase === 'fast' ? baseBpm : slowBpm;
 }
+
+function serializeSettings(state) {
+  return JSON.stringify(state);
+}
+
+function deserializeSettings(json, defaults) {
+  const merged = JSON.parse(JSON.stringify(defaults));
+  let parsed;
+  try {
+    parsed = JSON.parse(json);
+  } catch (e) {
+    return merged;
+  }
+  if (!parsed || typeof parsed !== 'object') return merged;
+  for (const section of Object.keys(defaults)) {
+    if (parsed[section] && typeof parsed[section] === 'object') {
+      Object.assign(merged[section], parsed[section]);
+    }
+  }
+  return merged;
+}
 // LOGIC-END
 </script>
 <script>
@@ -194,7 +215,40 @@ const DEFAULT_STATE = {
   practice: { baseBpm: 120, deltaPercent: 50, beatsPerPhase: 4 },
 };
 
-const state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+const STORAGE_KEY = 'guitarMetronomeSettings';
+let state = deserializeSettings(localStorage.getItem(STORAGE_KEY), DEFAULT_STATE);
+
+function persistState() {
+  localStorage.setItem(STORAGE_KEY, serializeSettings(state));
+}
+
+function refreshAllInputsFromState() {
+  document.getElementById('timeSigNum').value = state.topBar.timeSigNum;
+  document.getElementById('timeSigDen').value = state.topBar.timeSigDen;
+  document.getElementById('subdivision').value = state.topBar.subdivision;
+  document.getElementById('soundStyle').value = state.topBar.soundStyle;
+  document.getElementById('volume').value = state.topBar.volume;
+
+  document.getElementById('metronomeBpm').value = state.metronome.bpm;
+  document.getElementById('metronomeBpmRange').value = state.metronome.bpm;
+  document.getElementById('metronomePercent').value = state.metronome.percent;
+  document.getElementById('metronomePercentRange').value = state.metronome.percent;
+  document.getElementById('accentFirstBeat').checked = state.metronome.accentFirstBeat;
+
+  document.getElementById('rampStartBpm').value = state.ramp.startBpm;
+  document.getElementById('rampStopBpm').value = state.ramp.stopBpm;
+  document.getElementById('rampScaleMode').value = state.ramp.scaleMode;
+  document.getElementById('rampScaleAmount').value = state.ramp.scaleAmount;
+  document.getElementById('rampStepBars').value = state.ramp.stepBars;
+
+  document.getElementById('practiceBaseBpm').value = state.practice.baseBpm;
+  document.getElementById('practiceDeltaPercent').value = state.practice.deltaPercent;
+  document.getElementById('practiceBeatsPerPhase').value = state.practice.beatsPerPhase;
+
+  const validTabs = ['metronome', 'ramp', 'practice'];
+  const activeTab = validTabs.includes(state.topBar.activeTab) ? state.topBar.activeTab : 'metronome';
+  switchTab(activeTab);
+}
 
 function clampPositiveInt(value, fallback) {
   const n = Math.round(Number(value));
@@ -211,18 +265,23 @@ function bindTopBar() {
 
   timeSigNum.addEventListener('input', () => {
     state.topBar.timeSigNum = clampPositiveInt(timeSigNum.value, DEFAULT_STATE.topBar.timeSigNum);
+    persistState();
   });
   timeSigDen.addEventListener('change', () => {
     state.topBar.timeSigDen = Number(timeSigDen.value);
+    persistState();
   });
   subdivision.addEventListener('change', () => {
     state.topBar.subdivision = subdivision.value;
+    persistState();
   });
   soundStyle.addEventListener('change', () => {
     state.topBar.soundStyle = soundStyle.value;
+    persistState();
   });
   volume.addEventListener('input', () => {
     state.topBar.volume = Number(volume.value);
+    persistState();
   });
 }
 
@@ -402,11 +461,11 @@ function bindMetronomeTab() {
     percentRange.value = state.metronome.percent;
   }
 
-  bpm.addEventListener('change', () => setBpm(bpm.value));
-  bpmRange.addEventListener('input', () => setBpm(bpmRange.value));
-  percent.addEventListener('change', () => setPercent(percent.value));
-  percentRange.addEventListener('input', () => setPercent(percentRange.value));
-  accent.addEventListener('change', () => { state.metronome.accentFirstBeat = accent.checked; });
+  bpm.addEventListener('change', () => { setBpm(bpm.value); persistState(); });
+  bpmRange.addEventListener('input', () => { setBpm(bpmRange.value); persistState(); });
+  percent.addEventListener('change', () => { setPercent(percent.value); persistState(); });
+  percentRange.addEventListener('input', () => { setPercent(percentRange.value); persistState(); });
+  accent.addEventListener('change', () => { state.metronome.accentFirstBeat = accent.checked; persistState(); });
 }
 
 bindMetronomeTab();
@@ -465,20 +524,24 @@ function bindRampTab() {
   startBpm.addEventListener('change', () => {
     state.ramp.startBpm = clampBpm(startBpm.value);
     startBpm.value = state.ramp.startBpm;
+    persistState();
   });
   stopBpm.addEventListener('change', () => {
     state.ramp.stopBpm = clampBpm(stopBpm.value);
     stopBpm.value = state.ramp.stopBpm;
+    persistState();
   });
-  scaleMode.addEventListener('change', () => { state.ramp.scaleMode = scaleMode.value; });
+  scaleMode.addEventListener('change', () => { state.ramp.scaleMode = scaleMode.value; persistState(); });
   scaleAmount.addEventListener('change', () => {
     const n = Number(scaleAmount.value);
     state.ramp.scaleAmount = Number.isFinite(n) && n > 0 ? n : DEFAULT_STATE.ramp.scaleAmount;
     scaleAmount.value = state.ramp.scaleAmount;
+    persistState();
   });
   stepBars.addEventListener('change', () => {
     state.ramp.stepBars = clampPositiveInt(stepBars.value, DEFAULT_STATE.ramp.stepBars);
     stepBars.value = state.ramp.stepBars;
+    persistState();
   });
 }
 
@@ -492,19 +555,24 @@ function bindPracticeTab() {
   baseBpm.addEventListener('change', () => {
     state.practice.baseBpm = clampBpm(baseBpm.value);
     baseBpm.value = state.practice.baseBpm;
+    persistState();
   });
   deltaPercent.addEventListener('change', () => {
     const n = Math.round(Number(deltaPercent.value));
     state.practice.deltaPercent = Number.isFinite(n) ? Math.min(90, Math.max(10, n)) : DEFAULT_STATE.practice.deltaPercent;
     deltaPercent.value = state.practice.deltaPercent;
+    persistState();
   });
   beatsPerPhase.addEventListener('change', () => {
     state.practice.beatsPerPhase = clampPositiveInt(beatsPerPhase.value, DEFAULT_STATE.practice.beatsPerPhase);
     beatsPerPhase.value = state.practice.beatsPerPhase;
+    persistState();
   });
 }
 
 bindPracticeTab();
+
+refreshAllInputsFromState();
 </script>
 </body>
 </html>
