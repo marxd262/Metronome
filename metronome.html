@@ -257,6 +257,17 @@ button {
   min-height: 1.2em;
   text-align: center;
 }
+
+.phase-segment {
+  transition: font-size 0.15s ease, text-shadow 0.15s ease, color 0.15s ease;
+}
+
+.phase-segment.active {
+  color: var(--accent);
+  font-size: 1.1em;
+  font-weight: 600;
+  text-shadow: 0 0 8px var(--accent);
+}
 </style>
 </head>
 <body>
@@ -413,12 +424,12 @@ function computeSlowBpm(baseBpm, deltaPercent) {
   return clampBpm(baseBpm * (1 - deltaPercent / 100));
 }
 
-function buildPracticePhaseSequence(beatsPerPhase) {
+function buildPracticePhaseSequence(beatsPerPhase, breakBeats) {
   const seq = [];
   for (let i = 0; i < beatsPerPhase; i++) seq.push('slow');
-  seq.push('break');
+  for (let i = 0; i < breakBeats; i++) seq.push('break');
   for (let i = 0; i < beatsPerPhase; i++) seq.push('fast');
-  seq.push('break');
+  for (let i = 0; i < breakBeats; i++) seq.push('break');
   return seq;
 }
 
@@ -639,9 +650,21 @@ function updateRampReadout() {
     `Current: ${rampRuntime.currentBpm} BPM` + (rampRuntime.direction === null ? ' (holding at target)' : '');
 }
 
+const PHASE_SEGMENT_LABELS = ['SLOW', 'BREAK', 'FAST', 'BREAK'];
+
 function updatePracticeReadout() {
-  const phase = practiceRuntime.sequence[practiceRuntime.index];
-  document.getElementById('practiceReadout').textContent = `Phase: ${phase.toUpperCase()}`;
+  const el = document.getElementById('practiceReadout');
+  const activeSegment = (isPlaying && practiceRuntime)
+    ? practiceSegmentIndex(practiceRuntime.index, state.practice.beatsPerPhase, state.topBar.timeSigNum)
+    : 0;
+  el.innerHTML = '';
+  PHASE_SEGMENT_LABELS.forEach((label, i) => {
+    if (i > 0) el.appendChild(document.createTextNode(' - '));
+    const span = document.createElement('span');
+    span.className = 'phase-segment' + (i === activeSegment ? ' active' : '');
+    span.textContent = label;
+    el.appendChild(span);
+  });
 }
 
 function updateHeroBpm(explicitBpm) {
@@ -686,7 +709,10 @@ function advanceModeAfterBeat() {
 function scheduleBeat(time) {
   const bpm = currentModeBpm();
   const beatIndex = beatIndexInBar;
-  const accent = isAccentBeat(beatIndex, state.topBar.accentPattern);
+  const isPracticeBreak = state.topBar.activeTab === 'practice'
+    && practiceRuntime
+    && practiceRuntime.sequence[practiceRuntime.index] === 'break';
+  const accent = !isPracticeBreak && isAccentBeat(beatIndex, state.topBar.accentPattern);
   scheduleClick(time, accent, false);
 
   const subCount = subdivisionCount(state.topBar.subdivision);
@@ -731,7 +757,7 @@ function startPlayback() {
   }
   if (state.topBar.activeTab === 'practice') {
     practiceRuntime = {
-      sequence: buildPracticePhaseSequence(state.practice.beatsPerPhase),
+      sequence: buildPracticePhaseSequence(state.practice.beatsPerPhase, state.topBar.timeSigNum),
       index: 0,
     };
     updatePracticeReadout();
@@ -745,6 +771,7 @@ function stopPlayback() {
   isPlaying = false;
   clearTimeout(schedulerTimerId);
   document.getElementById('startStop').textContent = 'Start';
+  updatePracticeReadout();
 }
 
 document.getElementById('startStop').addEventListener('click', () => {
@@ -897,6 +924,7 @@ bindPracticeTab();
 refreshAllInputsFromState();
 state.topBar.accentPattern = resizeAccentPattern(state.topBar.accentPattern, state.topBar.timeSigNum);
 renderBeatDots();
+updatePracticeReadout();
 </script>
 </body>
 </html>

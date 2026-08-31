@@ -130,15 +130,23 @@ test('computeSlowBpm clamps to the 20-400 BPM range instead of flooring at 1', (
   assert.equal(computeSlowBpm(20, 90), 20);
 });
 
-test('buildPracticePhaseSequence builds slow/break/fast/break cycle', () => {
+test('buildPracticePhaseSequence builds slow/break/fast/break with a single break beat', () => {
   const { buildPracticePhaseSequence } = loadLogic(['buildPracticePhaseSequence']);
   assert.deepEqual(
-    buildPracticePhaseSequence(2),
+    buildPracticePhaseSequence(2, 1),
     ['slow', 'slow', 'break', 'fast', 'fast', 'break']
   );
   assert.deepEqual(
-    buildPracticePhaseSequence(1),
+    buildPracticePhaseSequence(1, 1),
     ['slow', 'break', 'fast', 'break']
+  );
+});
+
+test('buildPracticePhaseSequence repeats break beats to match a full bar', () => {
+  const { buildPracticePhaseSequence } = loadLogic(['buildPracticePhaseSequence']);
+  assert.deepEqual(
+    buildPracticePhaseSequence(2, 3),
+    ['slow', 'slow', 'break', 'break', 'break', 'fast', 'fast', 'break', 'break', 'break']
   );
 });
 
