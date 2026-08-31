@@ -167,6 +167,23 @@ function computeNextRampBpm(currentBpm, direction, scaleMode, scaleAmount, stopB
 function barsToBeats(bars, timeSigNumerator) {
   return bars * timeSigNumerator;
 }
+
+function computeSlowBpm(baseBpm, deltaPercent) {
+  return Math.max(1, Math.round(baseBpm * (1 - deltaPercent / 100)));
+}
+
+function buildPracticePhaseSequence(beatsPerPhase) {
+  const seq = [];
+  for (let i = 0; i < beatsPerPhase; i++) seq.push('slow');
+  seq.push('break');
+  for (let i = 0; i < beatsPerPhase; i++) seq.push('fast');
+  seq.push('break');
+  return seq;
+}
+
+function bpmForPhase(phase, baseBpm, slowBpm) {
+  return phase === 'fast' ? baseBpm : slowBpm;
+}
 // LOGIC-END
 </script>
 <script>
@@ -259,9 +276,14 @@ function flashBeatIndicator(accent) {
 
 let rampRuntime = null;
 
+let practiceRuntime = null;
+
 function currentModeBpm() {
   if (state.topBar.activeTab === 'ramp') {
     return rampRuntime.currentBpm;
+  }
+  if (state.topBar.activeTab === 'practice') {
+    return bpmForPhase(practiceRuntime.sequence[practiceRuntime.index], state.practice.baseBpm, practiceRuntime.slowBpm);
   }
   return computeEffectiveBpm(state.metronome.bpm, state.metronome.percent);
 }
@@ -271,19 +293,28 @@ function updateRampReadout() {
     `Current: ${rampRuntime.currentBpm} BPM` + (rampRuntime.direction === null ? ' (holding at target)' : '');
 }
 
+function updatePracticeReadout() {
+  const phase = practiceRuntime.sequence[practiceRuntime.index];
+  document.getElementById('practiceReadout').textContent = `Phase: ${phase.toUpperCase()}`;
+}
+
 function advanceModeAfterBeat() {
-  if (state.topBar.activeTab !== 'ramp' || !rampRuntime) return;
-  rampRuntime.beatsIntoStep++;
-  const beatsPerStep = barsToBeats(state.ramp.stepBars, state.topBar.timeSigNum);
-  if (rampRuntime.direction !== null && rampRuntime.beatsIntoStep >= beatsPerStep) {
-    rampRuntime.currentBpm = computeNextRampBpm(
-      rampRuntime.currentBpm, rampRuntime.direction, state.ramp.scaleMode,
-      state.ramp.scaleAmount, state.ramp.stopBpm
-    );
-    rampRuntime.beatsIntoStep = 0;
-    if (rampRuntime.currentBpm === state.ramp.stopBpm) rampRuntime.direction = null;
+  if (state.topBar.activeTab === 'ramp' && rampRuntime) {
+    rampRuntime.beatsIntoStep++;
+    const beatsPerStep = barsToBeats(state.ramp.stepBars, state.topBar.timeSigNum);
+    if (rampRuntime.direction !== null && rampRuntime.beatsIntoStep >= beatsPerStep) {
+      rampRuntime.currentBpm = computeNextRampBpm(
+        rampRuntime.currentBpm, rampRuntime.direction, state.ramp.scaleMode,
+        state.ramp.scaleAmount, state.ramp.stopBpm
+      );
+      rampRuntime.beatsIntoStep = 0;
+      if (rampRuntime.currentBpm === state.ramp.stopBpm) rampRuntime.direction = null;
+    }
+    updateRampReadout();
+  } else if (state.topBar.activeTab === 'practice' && practiceRuntime) {
+    practiceRuntime.index = (practiceRuntime.index + 1) % practiceRuntime.sequence.length;
+    updatePracticeReadout();
   }
-  updateRampReadout();
 }
 
 function scheduleBeat(time) {
@@ -329,6 +360,14 @@ function startPlayback() {
       beatsIntoStep: 0,
     };
     updateRampReadout();
+  }
+  if (state.topBar.activeTab === 'practice') {
+    practiceRuntime = {
+      sequence: buildPracticePhaseSequence(state.practice.beatsPerPhase),
+      index: 0,
+      slowBpm: computeSlowBpm(state.practice.baseBpm, state.practice.deltaPercent),
+    };
+    updatePracticeReadout();
   }
   schedulerTick();
   document.getElementById('startStop').textContent = 'Stop';
@@ -444,6 +483,28 @@ function bindRampTab() {
 }
 
 bindRampTab();
+
+function bindPracticeTab() {
+  const baseBpm = document.getElementById('practiceBaseBpm');
+  const deltaPercent = document.getElementById('practiceDeltaPercent');
+  const beatsPerPhase = document.getElementById('practiceBeatsPerPhase');
+
+  baseBpm.addEventListener('change', () => {
+    state.practice.baseBpm = clampBpm(baseBpm.value);
+    baseBpm.value = state.practice.baseBpm;
+  });
+  deltaPercent.addEventListener('change', () => {
+    const n = Math.round(Number(deltaPercent.value));
+    state.practice.deltaPercent = Number.isFinite(n) ? Math.min(90, Math.max(10, n)) : DEFAULT_STATE.practice.deltaPercent;
+    deltaPercent.value = state.practice.deltaPercent;
+  });
+  beatsPerPhase.addEventListener('change', () => {
+    state.practice.beatsPerPhase = clampPositiveInt(beatsPerPhase.value, DEFAULT_STATE.practice.beatsPerPhase);
+    beatsPerPhase.value = state.practice.beatsPerPhase;
+  });
+}
+
+bindPracticeTab();
 </script>
 </body>
 </html>

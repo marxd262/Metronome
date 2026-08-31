@@ -105,3 +105,28 @@ test('barsToBeats multiplies bars by the time signature numerator', () => {
   assert.equal(barsToBeats(4, 4), 16);
   assert.equal(barsToBeats(2, 7), 14);
 });
+
+test('computeSlowBpm applies the delta percent below base', () => {
+  const { computeSlowBpm } = loadLogic(['computeSlowBpm']);
+  assert.equal(computeSlowBpm(120, 50), 60);
+  assert.equal(computeSlowBpm(120, 25), 90);
+});
+
+test('buildPracticePhaseSequence builds slow/break/fast/break cycle', () => {
+  const { buildPracticePhaseSequence } = loadLogic(['buildPracticePhaseSequence']);
+  assert.deepEqual(
+    buildPracticePhaseSequence(2),
+    ['slow', 'slow', 'break', 'fast', 'fast', 'break']
+  );
+  assert.deepEqual(
+    buildPracticePhaseSequence(1),
+    ['slow', 'break', 'fast', 'break']
+  );
+});
+
+test('bpmForPhase returns base for fast and slow bpm for slow/break', () => {
+  const { bpmForPhase } = loadLogic(['bpmForPhase']);
+  assert.equal(bpmForPhase('fast', 120, 60), 120);
+  assert.equal(bpmForPhase('slow', 120, 60), 60);
+  assert.equal(bpmForPhase('break', 120, 60), 60);
+});
