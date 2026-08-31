@@ -645,18 +645,22 @@ function currentModeBpm() {
   return computeEffectiveBpm(state.metronome.bpm, state.metronome.percent);
 }
 
-function updateRampReadout() {
+function updateRampReadout(explicitDisplay) {
+  const display = explicitDisplay || (rampRuntime ? { currentBpm: rampRuntime.currentBpm, direction: rampRuntime.direction } : null);
+  if (!display) return;
   document.getElementById('rampReadout').textContent =
-    `Current: ${rampRuntime.currentBpm} BPM` + (rampRuntime.direction === null ? ' (holding at target)' : '');
+    `Current: ${display.currentBpm} BPM` + (display.direction === null ? ' (holding at target)' : '');
 }
 
 const PHASE_SEGMENT_LABELS = ['SLOW', 'BREAK', 'FAST', 'BREAK'];
 
-function updatePracticeReadout() {
+function updatePracticeReadout(explicitSegment) {
   const el = document.getElementById('practiceReadout');
-  const activeSegment = (isPlaying && practiceRuntime)
-    ? practiceSegmentIndex(practiceRuntime.index, state.practice.beatsPerPhase, state.topBar.timeSigNum)
-    : 0;
+  const activeSegment = explicitSegment !== undefined
+    ? explicitSegment
+    : (isPlaying && practiceRuntime)
+      ? practiceSegmentIndex(practiceRuntime.index, state.practice.beatsPerPhase, state.topBar.timeSigNum)
+      : 0;
   el.innerHTML = '';
   PHASE_SEGMENT_LABELS.forEach((label, i) => {
     if (i > 0) el.appendChild(document.createTextNode(' - '));
@@ -699,10 +703,8 @@ function advanceModeAfterBeat() {
       rampRuntime.beatsIntoStep = 0;
       if (rampRuntime.currentBpm === state.ramp.stopBpm) rampRuntime.direction = null;
     }
-    updateRampReadout();
   } else if (state.topBar.activeTab === 'practice' && practiceRuntime) {
     practiceRuntime.index = (practiceRuntime.index + 1) % practiceRuntime.sequence.length;
-    updatePracticeReadout();
   }
 }
 
@@ -721,10 +723,17 @@ function scheduleBeat(time) {
     scheduleClick(time + subInterval * s, false, true);
   }
 
+  const rampDisplay = rampRuntime ? { currentBpm: rampRuntime.currentBpm, direction: rampRuntime.direction } : null;
+  const practiceSegment = practiceRuntime
+    ? practiceSegmentIndex(practiceRuntime.index, state.practice.beatsPerPhase, state.topBar.timeSigNum)
+    : null;
+
   const ctx = ensureAudioContext();
   setTimeout(() => {
     flashBeatIndicator(beatIndex, accent);
     updateHeroBpm(bpm);
+    if (rampDisplay) updateRampReadout(rampDisplay);
+    if (practiceSegment !== null) updatePracticeReadout(practiceSegment);
   }, Math.max(0, (time - ctx.currentTime) * 1000));
 
   beatIndexInBar = (beatIndexInBar + 1) % state.topBar.timeSigNum;
