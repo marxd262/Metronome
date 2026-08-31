@@ -57,3 +57,21 @@ test('isAccentBeat is true only for beat index 0', () => {
   assert.equal(isAccentBeat(1), false);
   assert.equal(isAccentBeat(3), false);
 });
+
+test('bpmFromTapTimestamps returns null with fewer than 2 taps', () => {
+  const { bpmFromTapTimestamps } = loadLogic(['bpmFromTapTimestamps']);
+  assert.equal(bpmFromTapTimestamps([]), null);
+  assert.equal(bpmFromTapTimestamps([1000]), null);
+});
+
+test('bpmFromTapTimestamps computes bpm from average interval', () => {
+  const { bpmFromTapTimestamps } = loadLogic(['bpmFromTapTimestamps']);
+  // Four taps exactly 500ms apart = 120 BPM
+  assert.equal(bpmFromTapTimestamps([0, 500, 1000, 1500]), 120);
+});
+
+test('bpmFromTapTimestamps ignores a gap larger than 2000ms', () => {
+  const { bpmFromTapTimestamps } = loadLogic(['bpmFromTapTimestamps']);
+  // First two taps 5000ms apart (stale), last two 500ms apart (120 BPM)
+  assert.equal(bpmFromTapTimestamps([0, 5000, 5500, 6000]), 120);
+});

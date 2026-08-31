@@ -138,6 +138,18 @@ function subdivisionIntervalSeconds(bpm, subdivision) {
 function isAccentBeat(beatIndexInBar) {
   return beatIndexInBar === 0;
 }
+
+function bpmFromTapTimestamps(timestamps) {
+  if (!Array.isArray(timestamps) || timestamps.length < 2) return null;
+  const diffs = [];
+  for (let i = 1; i < timestamps.length; i++) {
+    const diff = timestamps[i] - timestamps[i - 1];
+    if (diff > 0 && diff <= 2000) diffs.push(diff);
+  }
+  if (diffs.length === 0) return null;
+  const avg = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+  return clampBpm(60000 / avg);
+}
 // LOGIC-END
 </script>
 <script>
@@ -314,6 +326,34 @@ function bindMetronomeTab() {
 }
 
 bindMetronomeTab();
+
+let tapTimestamps = [];
+
+function activeBpmField() {
+  const tab = state.topBar.activeTab;
+  if (tab === 'ramp') return { input: document.getElementById('rampStartBpm'), key: 'ramp', prop: 'startBpm' };
+  if (tab === 'practice') return { input: document.getElementById('practiceBaseBpm'), key: 'practice', prop: 'baseBpm' };
+  return { input: document.getElementById('metronomeBpm'), key: 'metronome', prop: 'bpm' };
+}
+
+document.getElementById('tapTempo').addEventListener('click', () => {
+  const now = Date.now();
+  if (tapTimestamps.length > 0 && now - tapTimestamps[tapTimestamps.length - 1] > 2000) {
+    tapTimestamps = [];
+  }
+  tapTimestamps.push(now);
+  if (tapTimestamps.length > 8) tapTimestamps = tapTimestamps.slice(-8);
+
+  const bpm = bpmFromTapTimestamps(tapTimestamps);
+  if (bpm === null) return;
+
+  const field = activeBpmField();
+  state[field.key][field.prop] = bpm;
+  field.input.value = bpm;
+  if (field.key === 'metronome') {
+    document.getElementById('metronomeBpmRange').value = bpm;
+  }
+});
 </script>
 </body>
 </html>
