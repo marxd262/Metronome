@@ -496,11 +496,13 @@ document.getElementById('tapTempo').addEventListener('click', () => {
   if (field.key === 'metronome') {
     document.getElementById('metronomeBpmRange').value = bpm;
   }
+  persistState();
 });
 
 function switchTab(tabName) {
   if (isPlaying) stopPlayback();
   state.topBar.activeTab = tabName;
+  persistState();
 
   document.querySelectorAll('.tab-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.tab === tabName);
