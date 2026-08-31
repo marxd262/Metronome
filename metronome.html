@@ -341,8 +341,8 @@ button {
   <div id="panel-practice" class="panel" hidden>
     <label>Base (Fast) BPM <input id="practiceBaseBpm" type="number" min="20" max="400" step="1" value="120"></label>
     <label>Speed Delta % <input id="practiceDeltaPercent" type="number" min="10" max="90" step="1" value="50"></label>
-    <label>Beats per Phase <input id="practiceBeatsPerPhase" type="number" min="1" step="1" value="4"></label>
-    <label>Break Length (beats) <input id="practiceBreakBeats" type="number" min="1" step="1" value="4"></label>
+    <label>Beats per Phase <input id="practiceBeatsPerPhase" type="number" min="1" max="64" step="1" value="4"></label>
+    <label>Break Length (beats) <input id="practiceBreakBeats" type="number" min="1" max="64" step="1" value="4"></label>
     <div id="practiceReadout" class="readout"></div>
   </div>
 
@@ -542,7 +542,7 @@ function bindTopBar() {
   timeSigNum.addEventListener('input', () => {
     state.topBar.timeSigNum = clampPositiveInt(timeSigNum.value, DEFAULT_STATE.topBar.timeSigNum);
     state.topBar.accentPattern = resizeAccentPattern(state.topBar.accentPattern, state.topBar.timeSigNum);
-    renderBeatDots();
+    if (!(isPlaying && state.topBar.activeTab === 'practice')) renderBeatDots();
     persistState();
   });
   subdivision.addEventListener('change', () => {
@@ -769,10 +769,12 @@ function scheduleBeat(time) {
   const dotCount = isPracticeMode
     ? (isPracticeBreak ? practiceRuntime.breakBeats : practiceRuntime.beatsPerPhase)
     : null;
+  const dotRuntime = isPracticeMode ? practiceRuntime : null;
 
   const ctx = ensureAudioContext();
   setTimeout(() => {
-    if (isPlaying && dotCount !== null && document.getElementById('beatIndicator').children.length !== dotCount) {
+    if (isPlaying && dotCount !== null && state.topBar.activeTab === 'practice' && practiceRuntime === dotRuntime
+        && document.getElementById('beatIndicator').children.length !== dotCount) {
       renderPracticeProgressDots(dotCount);
     }
     flashBeatIndicator(dotIndex, accent);
