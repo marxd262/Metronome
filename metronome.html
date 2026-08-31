@@ -772,7 +772,7 @@ function scheduleBeat(time) {
 
   const ctx = ensureAudioContext();
   setTimeout(() => {
-    if (dotCount !== null && document.getElementById('beatIndicator').children.length !== dotCount) {
+    if (isPlaying && dotCount !== null && document.getElementById('beatIndicator').children.length !== dotCount) {
       renderPracticeProgressDots(dotCount);
     }
     flashBeatIndicator(dotIndex, accent);
