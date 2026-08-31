@@ -181,6 +181,139 @@ function bindTopBar() {
 }
 
 bindTopBar();
+
+let audioCtx = null;
+let isPlaying = false;
+let nextNoteTime = 0;
+let schedulerTimerId = null;
+let beatIndexInBar = 0;
+
+const LOOKAHEAD_MS = 25;
+const SCHEDULE_AHEAD_SEC = 0.1;
+
+function ensureAudioContext() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function soundFrequency(style, accent) {
+  const table = {
+    click: accent ? 1500 : 1000,
+    beep: accent ? 1800 : 1200,
+    wood: accent ? 900 : 500,
+  };
+  return table[style] || table.click;
+}
+
+function scheduleClick(time, accent, isSubdivision) {
+  const ctx = ensureAudioContext();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.type = state.topBar.soundStyle === 'wood' ? 'triangle' : 'sine';
+  osc.frequency.value = soundFrequency(state.topBar.soundStyle, accent);
+  const vol = (state.topBar.volume / 100) * (accent ? 1.0 : isSubdivision ? 0.4 : 0.7);
+  gain.gain.setValueAtTime(0.0001, time);
+  gain.gain.exponentialRampToValueAtTime(Math.max(vol, 0.0001), time + 0.001);
+  gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.05);
+  osc.start(time);
+  osc.stop(time + 0.06);
+}
+
+function flashBeatIndicator(accent) {
+  const el = document.getElementById('beatIndicator');
+  el.classList.add('pulse');
+  el.classList.toggle('accent', accent);
+  setTimeout(() => el.classList.remove('pulse'), 80);
+}
+
+function currentModeBpm() {
+  return computeEffectiveBpm(state.metronome.bpm, state.metronome.percent);
+}
+
+function advanceModeAfterBeat() {
+  // No-op for the metronome tab; Ramp (Task 6) and Practice (Task 7)
+  // override behavior by checking state.topBar.activeTab here.
+}
+
+function scheduleBeat(time) {
+  const bpm = currentModeBpm();
+  const accent = state.topBar.activeTab === 'metronome'
+    && state.metronome.accentFirstBeat
+    && isAccentBeat(beatIndexInBar);
+  scheduleClick(time, accent, false);
+
+  const subCount = subdivisionCount(state.topBar.subdivision);
+  const subInterval = subdivisionIntervalSeconds(bpm, state.topBar.subdivision);
+  for (let s = 1; s < subCount; s++) {
+    scheduleClick(time + subInterval * s, false, true);
+  }
+
+  const ctx = ensureAudioContext();
+  setTimeout(() => flashBeatIndicator(accent), Math.max(0, (time - ctx.currentTime) * 1000));
+
+  beatIndexInBar = (beatIndexInBar + 1) % state.topBar.timeSigNum;
+  advanceModeAfterBeat();
+  nextNoteTime = time + beatIntervalSeconds(bpm);
+}
+
+function schedulerTick() {
+  const ctx = ensureAudioContext();
+  while (nextNoteTime < ctx.currentTime + SCHEDULE_AHEAD_SEC) {
+    scheduleBeat(nextNoteTime);
+  }
+  schedulerTimerId = setTimeout(schedulerTick, LOOKAHEAD_MS);
+}
+
+function startPlayback() {
+  if (isPlaying) return;
+  const ctx = ensureAudioContext();
+  if (ctx.state === 'suspended') ctx.resume();
+  isPlaying = true;
+  beatIndexInBar = 0;
+  nextNoteTime = ctx.currentTime + 0.05;
+  schedulerTick();
+  document.getElementById('startStop').textContent = 'Stop';
+}
+
+function stopPlayback() {
+  if (!isPlaying) return;
+  isPlaying = false;
+  clearTimeout(schedulerTimerId);
+  document.getElementById('startStop').textContent = 'Start';
+}
+
+document.getElementById('startStop').addEventListener('click', () => {
+  if (isPlaying) stopPlayback(); else startPlayback();
+});
+
+function bindMetronomeTab() {
+  const bpm = document.getElementById('metronomeBpm');
+  const bpmRange = document.getElementById('metronomeBpmRange');
+  const percent = document.getElementById('metronomePercent');
+  const percentRange = document.getElementById('metronomePercentRange');
+  const accent = document.getElementById('accentFirstBeat');
+
+  function setBpm(value) {
+    state.metronome.bpm = clampBpm(value);
+    bpm.value = state.metronome.bpm;
+    bpmRange.value = state.metronome.bpm;
+  }
+  function setPercent(value) {
+    state.metronome.percent = clampBpmPercent(value);
+    percent.value = state.metronome.percent;
+    percentRange.value = state.metronome.percent;
+  }
+
+  bpm.addEventListener('change', () => setBpm(bpm.value));
+  bpmRange.addEventListener('input', () => setBpm(bpmRange.value));
+  percent.addEventListener('change', () => setPercent(percent.value));
+  percentRange.addEventListener('input', () => setPercent(percentRange.value));
+  accent.addEventListener('change', () => { state.metronome.accentFirstBeat = accent.checked; });
+}
+
+bindMetronomeTab();
 </script>
 </body>
 </html>
