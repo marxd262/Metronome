@@ -723,8 +723,10 @@ function scheduleBeat(time) {
     scheduleClick(time + subInterval * s, false, true);
   }
 
-  const rampDisplay = rampRuntime ? { currentBpm: rampRuntime.currentBpm, direction: rampRuntime.direction } : null;
-  const practiceSegment = practiceRuntime
+  const rampDisplay = (state.topBar.activeTab === 'ramp' && rampRuntime)
+    ? { currentBpm: rampRuntime.currentBpm, direction: rampRuntime.direction }
+    : null;
+  const practiceSegment = (state.topBar.activeTab === 'practice' && practiceRuntime)
     ? practiceSegmentIndex(practiceRuntime.index, state.practice.beatsPerPhase, state.topBar.timeSigNum)
     : null;
 
