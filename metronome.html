@@ -487,6 +487,21 @@ function clampPositiveInt(value, fallback) {
   if (!Number.isFinite(n) || n < 1) return fallback;
   return n;
 }
+
+function resizeAccentPattern(pattern, newLength) {
+  const result = [];
+  for (let i = 0; i < newLength; i++) {
+    result.push(Boolean(pattern && pattern[i]));
+  }
+  return result;
+}
+
+function practiceSegmentIndex(sequenceIndex, beatsPerPhase, breakBeats) {
+  if (sequenceIndex < beatsPerPhase) return 0;
+  if (sequenceIndex < beatsPerPhase + breakBeats) return 1;
+  if (sequenceIndex < beatsPerPhase + breakBeats + beatsPerPhase) return 2;
+  return 3;
+}
 // LOGIC-END
 </script>
 <script>

@@ -183,3 +183,40 @@ test('clampPositiveInt rounds and passes through positive input', () => {
   assert.equal(clampPositiveInt(3.6, 4), 4);
   assert.equal(clampPositiveInt(7, 4), 7);
 });
+
+test('resizeAccentPattern preserves existing values and pads with false when growing', () => {
+  const { resizeAccentPattern } = loadLogic(['resizeAccentPattern']);
+  assert.deepEqual(resizeAccentPattern([true, false, false, false], 6), [true, false, false, false, false, false]);
+});
+
+test('resizeAccentPattern truncates when shrinking', () => {
+  const { resizeAccentPattern } = loadLogic(['resizeAccentPattern']);
+  assert.deepEqual(resizeAccentPattern([true, false, true, true], 2), [true, false]);
+});
+
+test('resizeAccentPattern treats a missing pattern as all-false', () => {
+  const { resizeAccentPattern } = loadLogic(['resizeAccentPattern']);
+  assert.deepEqual(resizeAccentPattern(undefined, 3), [false, false, false]);
+});
+
+test('practiceSegmentIndex maps sequence position to the slow/break/fast/break segments', () => {
+  const { practiceSegmentIndex } = loadLogic(['practiceSegmentIndex']);
+  // beatsPerPhase=2, breakBeats=3 -> slow[0,1] break[2,3,4] fast[5,6] break[7,8,9]
+  assert.equal(practiceSegmentIndex(0, 2, 3), 0);
+  assert.equal(practiceSegmentIndex(1, 2, 3), 0);
+  assert.equal(practiceSegmentIndex(2, 2, 3), 1);
+  assert.equal(practiceSegmentIndex(4, 2, 3), 1);
+  assert.equal(practiceSegmentIndex(5, 2, 3), 2);
+  assert.equal(practiceSegmentIndex(6, 2, 3), 2);
+  assert.equal(practiceSegmentIndex(7, 2, 3), 3);
+  assert.equal(practiceSegmentIndex(9, 2, 3), 3);
+});
+
+test('practiceSegmentIndex handles a single beat per phase and a single break beat', () => {
+  const { practiceSegmentIndex } = loadLogic(['practiceSegmentIndex']);
+  // beatsPerPhase=1, breakBeats=1 -> slow[0] break[1] fast[2] break[3]
+  assert.equal(practiceSegmentIndex(0, 1, 1), 0);
+  assert.equal(practiceSegmentIndex(1, 1, 1), 1);
+  assert.equal(practiceSegmentIndex(2, 1, 1), 2);
+  assert.equal(practiceSegmentIndex(3, 1, 1), 3);
+});
