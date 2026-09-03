@@ -7,16 +7,48 @@
 <style>
 :root {
   --bg: #15151a;
-  --panel: #1c1c22;
+  --panel: #1e1e25;
   --divider: #2a2a33;
   --text: #e8e8ec;
-  --text-muted: #8b8b95;
+  --text-muted: #9ba0a8;
   --accent: #f5a623;
   --accent-beat: #e5484d;
   --on-accent: #1a1305;
   --dot-idle: #666672;
   --radius: 8px;
   --radius-lg: 999px;
+  --radius-round: 50%;
+
+  /* Motion */
+  --duration-instant: 0.05s;
+  --duration-fast: 0.15s;
+
+  /* Type weight */
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Type scale */
+  --text-xs:   0.75rem;
+  --text-sm:   0.875rem;
+  --text-base: 1rem;
+  --text-hero: 4rem;
+
+  /* Spacing scale */
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.5rem;
+  --space-xs:  0.75rem;
+  --space-sm:  1rem;
+  --space-md:  1.25rem;
+  --space-lg:  1.5rem;
+  --space-xl:  2rem;
+  --space-2xl: 2.5rem;
+  --space-3xl: 3rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: var(--duration-instant);
+  }
 }
 
 * { box-sizing: border-box; }
@@ -24,39 +56,45 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   max-width: 480px;
-  margin: 2.5rem auto;
-  padding: 0 1.25rem 3rem;
+  margin: var(--space-2xl) auto;
+  padding: 0 var(--space-md) var(--space-3xl);
   line-height: 1.45;
 }
 
 h1 {
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-muted);
   text-align: center;
-  margin: 0 0 2rem;
+  margin: 0 0 var(--space-xl);
 }
 
 #topbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem 1.5rem;
-  align-items: flex-end;
-  padding-bottom: 1.25rem;
-  margin-bottom: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-sm) var(--space-lg);
+  align-items: end;
+  padding-bottom: var(--space-md);
+  margin-bottom: var(--space-lg);
   border-bottom: 1px solid var(--divider);
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
+}
+
+#topbar .full {
+  grid-column: 1 / -1;
 }
 
 #tabs {
   display: flex;
-  gap: 1.75rem;
+  gap: var(--space-lg);
   border-bottom: 1px solid var(--divider);
-  margin-bottom: 2rem;
+  margin-bottom: var(--space-xl);
 }
 
 .tab-btn {
@@ -64,29 +102,28 @@ h1 {
   border: none;
   color: var(--text-muted);
   font: inherit;
-  font-size: 0.95rem;
-  font-weight: 500;
-  padding: 0.65rem 0.05rem;
+  font-size: var(--text-base);
+  padding: var(--space-xs) 0.05rem; /* horizontal inset stays hairline-thin so the active underline tracks the label width */
   margin-bottom: -1px;
   cursor: pointer;
   border-bottom: 2px solid transparent;
-  transition: color 0.15s ease;
+  transition: color var(--duration-fast) ease;
 }
 
 .tab-btn:hover { color: var(--text); }
 
 .tab-btn.active {
   color: var(--accent);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   border-bottom-color: var(--accent);
 }
 
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 1.15rem;
-  padding-bottom: 1.5rem;
-  margin-bottom: 1.5rem;
+  gap: var(--space-md);
+  padding-bottom: var(--space-lg);
+  margin-bottom: var(--space-lg);
   border-bottom: 1px solid var(--divider);
 }
 
@@ -94,31 +131,37 @@ h1 {
 
 #heroZone {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: var(--space-xl);
 }
 
 #heroBpm {
-  font-size: 4rem;
-  font-weight: 700;
+  font-size: var(--text-hero);
+  font-weight: var(--font-weight-bold);
   line-height: 1;
+  letter-spacing: -0.02em;
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 
 #heroBpmLabel {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--text-muted);
   margin-top: 0.35rem;
 }
 
-label {
+label,
+.field-group {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  font-size: 0.85rem;
+  gap: var(--space-2xs);
+  font-size: var(--text-sm);
   color: var(--text-muted);
+}
+
+.field-caption {
+  display: block;
 }
 
 input[type="number"],
@@ -127,14 +170,23 @@ select {
   color: var(--text);
   border: 1px solid var(--divider);
   border-radius: var(--radius);
-  padding: 0.5rem 0.6rem;
+  padding: var(--space-2xs);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
+  font-variant-numeric: tabular-nums;
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: border-color var(--duration-fast) ease;
 }
 
-#topbar input[type="number"] { width: 4rem; }
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
 
 input[type="number"]:focus,
 select:focus {
@@ -154,7 +206,7 @@ input[type="range"] {
   appearance: none;
   width: 100%;
   height: 4px;
-  border-radius: 2px;
+  border-radius: var(--radius-round);
   background: var(--divider);
   outline: none;
   cursor: pointer;
@@ -165,7 +217,7 @@ input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: 16px;
   height: 16px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--accent);
   border: none;
   cursor: pointer;
@@ -174,7 +226,7 @@ input[type="range"]::-webkit-slider-thumb {
 input[type="range"]::-moz-range-thumb {
   width: 16px;
   height: 16px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--accent);
   border: none;
   cursor: pointer;
@@ -182,7 +234,7 @@ input[type="range"]::-moz-range-thumb {
 
 input[type="range"]::-moz-range-track {
   height: 4px;
-  border-radius: 2px;
+  border-radius: var(--radius-round);
   background: var(--divider);
 }
 
@@ -191,27 +243,93 @@ button {
   cursor: pointer;
 }
 
-#tapTempo {
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--divider);
-  border-radius: var(--radius);
-  padding: 0.5rem 0.9rem;
-  font-size: 0.8rem;
-  transition: border-color 0.15s ease, color 0.15s ease;
+.bpm-field {
+  position: relative;
+  display: block;
 }
 
-#tapTempo:hover {
+.bpm-field input[type="number"] {
+  width: 100%;
+  padding-right: 3.4rem;
+}
+
+.tapTempo {
+  position: absolute;
+  right: 0.35rem; /* clears the number input's reserved padding-right; coupled to that value, not a spacing-scale step */
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--bg);
+  color: var(--text-muted);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius);
+  padding: var(--space-3xs) var(--space-2xs);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: border-color var(--duration-fast) ease, color var(--duration-fast) ease;
+}
+
+.tapTempo:hover {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.stepper-row {
+  display: flex;
+  gap: var(--space-2xs);
+  align-items: stretch;
+}
+
+.stepper-row .bpm-field,
+.stepper-row input[type="number"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.step-group {
+  display: flex;
+  gap: var(--space-3xs);
+}
+
+.step-btn {
+  flex: 0 0 auto;
+  width: 2.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel);
+  color: var(--text-muted);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-semibold);
+  transition: background var(--duration-fast) ease, border-color var(--duration-fast) ease, color var(--duration-fast) ease, transform var(--duration-instant) ease;
+}
+
+.step-btn.step-5 {
+  width: 1.9rem;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.step-btn:hover {
+  background: #26262f;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.step-btn:active {
+  transform: scale(0.94);
 }
 
 #controls {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
+  gap: var(--space-xs);
+  margin-top: var(--space-2xs);
 }
 
 #startStop {
@@ -219,11 +337,11 @@ button {
   color: var(--on-accent);
   border: none;
   border-radius: var(--radius-lg);
-  padding: 0.9rem 3rem;
-  font-size: 1.05rem;
-  font-weight: 600;
+  padding: var(--space-sm) var(--space-3xl);
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 0.02em;
-  transition: filter 0.15s ease, transform 0.05s ease;
+  transition: filter var(--duration-fast) ease, transform var(--duration-instant) ease;
 }
 
 #startStop:hover { filter: brightness(1.08); }
@@ -232,9 +350,9 @@ button {
 #beatIndicator {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
+  gap: var(--space-2xs);
   justify-content: center;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-sm);
 }
 
 .beat-dot {
@@ -244,9 +362,9 @@ button {
   height: 18px;
   padding: 0;
   border: 2px solid transparent;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--dot-idle);
-  transition: background-color 0.05s ease, border-color 0.15s ease;
+  transition: background-color var(--duration-instant) ease, border-color var(--duration-fast) ease;
 }
 
 .beat-dot.accented { border-color: var(--accent-beat); }
@@ -255,26 +373,27 @@ button {
 
 #statusReadout,
 .readout {
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   min-height: 1.2em;
   text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .phase-segment {
-  transition: font-size 0.15s ease, text-shadow 0.15s ease, color 0.15s ease;
+  transition: font-size var(--duration-fast) ease, text-shadow var(--duration-fast) ease, color var(--duration-fast) ease;
 }
 
 .phase-segment.active {
   color: var(--accent);
   font-size: 1.1em;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   text-shadow: 0 0 8px var(--accent);
 }
 </style>
 </head>
 <body>
-  <h1>Guitar Practice Metronome</h1>
+  <h1>Guitar Practice&nbsp;Metronome</h1>
 
   <div id="topbar">
     <label>Beats per Bar
@@ -295,10 +414,9 @@ button {
         <option value="wood">Wood Block</option>
       </select>
     </label>
-    <label>Volume
+    <label class="full">Volume
       <input id="volume" type="range" min="0" max="100" step="1" value="80">
     </label>
-    <button id="tapTempo" type="button">Tap Tempo</button>
   </div>
 
   <div id="tabs">
@@ -314,19 +432,78 @@ button {
   </div>
 
   <div id="panel-metronome" class="panel">
-    <label>BPM
-      <input id="metronomeBpm" type="number" min="20" max="400" step="1" value="120">
+    <div class="field-group">
+      <label class="field-caption" for="metronomeBpm">BPM</label>
+      <div class="stepper-row">
+        <div class="step-group">
+          <button class="step-btn step-5" type="button" data-step-target="metronomeBpm" data-step="-5">&minus;5</button>
+          <button class="step-btn" type="button" data-step-target="metronomeBpm" data-step="-1">&minus;</button>
+        </div>
+        <span class="bpm-field">
+          <input id="metronomeBpm" type="number" min="20" max="400" step="1" value="120">
+          <button class="tapTempo" type="button">Tap</button>
+        </span>
+        <div class="step-group">
+          <button class="step-btn" type="button" data-step-target="metronomeBpm" data-step="1">&plus;</button>
+          <button class="step-btn step-5" type="button" data-step-target="metronomeBpm" data-step="5">&plus;5</button>
+        </div>
+      </div>
       <input id="metronomeBpmRange" type="range" min="20" max="400" step="1" value="120">
-    </label>
-    <label>% of BPM
-      <input id="metronomePercent" type="number" min="50" max="150" step="1" value="100">
+    </div>
+    <div class="field-group">
+      <label class="field-caption" for="metronomePercent">% of BPM</label>
+      <div class="stepper-row">
+        <div class="step-group">
+          <button class="step-btn step-5" type="button" data-step-target="metronomePercent" data-step="-5">&minus;5</button>
+          <button class="step-btn" type="button" data-step-target="metronomePercent" data-step="-1">&minus;</button>
+        </div>
+        <input id="metronomePercent" type="number" min="50" max="150" step="1" value="100">
+        <div class="step-group">
+          <button class="step-btn" type="button" data-step-target="metronomePercent" data-step="1">&plus;</button>
+          <button class="step-btn step-5" type="button" data-step-target="metronomePercent" data-step="5">&plus;5</button>
+        </div>
+      </div>
       <input id="metronomePercentRange" type="range" min="50" max="150" step="1" value="100">
-    </label>
+    </div>
   </div>
 
   <div id="panel-ramp" class="panel" hidden>
-    <label>Start BPM <input id="rampStartBpm" type="number" min="20" max="400" step="1" value="80"></label>
-    <label>Stop BPM <input id="rampStopBpm" type="number" min="20" max="400" step="1" value="140"></label>
+    <div class="field-group">
+      <label class="field-caption" for="rampStartBpm">Start BPM</label>
+      <div class="stepper-row">
+        <div class="step-group">
+          <button class="step-btn step-5" type="button" data-step-target="rampStartBpm" data-step="-5">&minus;5</button>
+          <button class="step-btn" type="button" data-step-target="rampStartBpm" data-step="-1">&minus;</button>
+        </div>
+        <span class="bpm-field">
+          <input id="rampStartBpm" type="number" min="20" max="400" step="1" value="80">
+          <button class="tapTempo" type="button">Tap</button>
+        </span>
+        <div class="step-group">
+          <button class="step-btn" type="button" data-step-target="rampStartBpm" data-step="1">&plus;</button>
+          <button class="step-btn step-5" type="button" data-step-target="rampStartBpm" data-step="5">&plus;5</button>
+        </div>
+      </div>
+      <input id="rampStartBpmRange" type="range" min="20" max="400" step="1" value="80">
+    </div>
+    <div class="field-group">
+      <label class="field-caption" for="rampStopBpm">Stop BPM</label>
+      <div class="stepper-row">
+        <div class="step-group">
+          <button class="step-btn step-5" type="button" data-step-target="rampStopBpm" data-step="-5">&minus;5</button>
+          <button class="step-btn" type="button" data-step-target="rampStopBpm" data-step="-1">&minus;</button>
+        </div>
+        <span class="bpm-field">
+          <input id="rampStopBpm" type="number" min="20" max="400" step="1" value="140">
+          <button class="tapTempo" type="button">Tap</button>
+        </span>
+        <div class="step-group">
+          <button class="step-btn" type="button" data-step-target="rampStopBpm" data-step="1">&plus;</button>
+          <button class="step-btn step-5" type="button" data-step-target="rampStopBpm" data-step="5">&plus;5</button>
+        </div>
+      </div>
+      <input id="rampStopBpmRange" type="range" min="20" max="400" step="1" value="140">
+    </div>
     <label>Scale Mode
       <select id="rampScaleMode">
         <option value="percent">% per step</option>
@@ -339,8 +516,39 @@ button {
   </div>
 
   <div id="panel-practice" class="panel" hidden>
-    <label>Base (Fast) BPM <input id="practiceBaseBpm" type="number" min="20" max="400" step="1" value="120"></label>
-    <label>Speed Delta % <input id="practiceDeltaPercent" type="number" min="10" max="90" step="1" value="50"></label>
+    <div class="field-group">
+      <label class="field-caption" for="practiceBaseBpm">Base (Fast) BPM</label>
+      <div class="stepper-row">
+        <div class="step-group">
+          <button class="step-btn step-5" type="button" data-step-target="practiceBaseBpm" data-step="-5">&minus;5</button>
+          <button class="step-btn" type="button" data-step-target="practiceBaseBpm" data-step="-1">&minus;</button>
+        </div>
+        <span class="bpm-field">
+          <input id="practiceBaseBpm" type="number" min="20" max="400" step="1" value="120">
+          <button class="tapTempo" type="button">Tap</button>
+        </span>
+        <div class="step-group">
+          <button class="step-btn" type="button" data-step-target="practiceBaseBpm" data-step="1">&plus;</button>
+          <button class="step-btn step-5" type="button" data-step-target="practiceBaseBpm" data-step="5">&plus;5</button>
+        </div>
+      </div>
+      <input id="practiceBaseBpmRange" type="range" min="20" max="400" step="1" value="120">
+    </div>
+    <div class="field-group">
+      <label class="field-caption" for="practiceDeltaPercent">Speed Delta %</label>
+      <div class="stepper-row">
+        <div class="step-group">
+          <button class="step-btn step-5" type="button" data-step-target="practiceDeltaPercent" data-step="-5">&minus;5</button>
+          <button class="step-btn" type="button" data-step-target="practiceDeltaPercent" data-step="-1">&minus;</button>
+        </div>
+        <input id="practiceDeltaPercent" type="number" min="10" max="90" step="1" value="50">
+        <div class="step-group">
+          <button class="step-btn" type="button" data-step-target="practiceDeltaPercent" data-step="1">&plus;</button>
+          <button class="step-btn step-5" type="button" data-step-target="practiceDeltaPercent" data-step="5">&plus;5</button>
+        </div>
+      </div>
+      <input id="practiceDeltaPercentRange" type="range" min="10" max="90" step="1" value="50">
+    </div>
     <label>Beats per Phase <input id="practiceBeatsPerPhase" type="number" min="1" max="64" step="1" value="4"></label>
     <label>Break Length (beats) <input id="practiceBreakBeats" type="number" min="1" max="64" step="1" value="4"></label>
     <div id="practiceReadout" class="readout"></div>
@@ -518,13 +726,17 @@ function refreshAllInputsFromState() {
   document.getElementById('metronomePercentRange').value = state.metronome.percent;
 
   document.getElementById('rampStartBpm').value = state.ramp.startBpm;
+  document.getElementById('rampStartBpmRange').value = state.ramp.startBpm;
   document.getElementById('rampStopBpm').value = state.ramp.stopBpm;
+  document.getElementById('rampStopBpmRange').value = state.ramp.stopBpm;
   document.getElementById('rampScaleMode').value = state.ramp.scaleMode;
   document.getElementById('rampScaleAmount').value = state.ramp.scaleAmount;
   document.getElementById('rampStepBars').value = state.ramp.stepBars;
 
   document.getElementById('practiceBaseBpm').value = state.practice.baseBpm;
+  document.getElementById('practiceBaseBpmRange').value = state.practice.baseBpm;
   document.getElementById('practiceDeltaPercent').value = state.practice.deltaPercent;
+  document.getElementById('practiceDeltaPercentRange').value = state.practice.deltaPercent;
   document.getElementById('practiceBeatsPerPhase').value = state.practice.beatsPerPhase;
   document.getElementById('practiceBreakBeats').value = state.practice.breakBeats;
 
@@ -606,7 +818,7 @@ function flashBeatIndicator(beatIndex, accent) {
   if (!dot) return;
   dot.classList.add('pulse');
   dot.classList.toggle('accent', accent);
-  setTimeout(() => dot.classList.remove('pulse'), 80);
+  dot.addEventListener('transitionend', () => dot.classList.remove('pulse'), { once: true });
 }
 
 function renderBeatDots() {
@@ -847,6 +1059,11 @@ document.addEventListener('keydown', (e) => {
   if (isPlaying) stopPlayback(); else startPlayback();
 });
 
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (btn && e.detail !== 0) btn.blur();
+});
+
 function bindMetronomeTab() {
   const bpm = document.getElementById('metronomeBpm');
   const bpmRange = document.getElementById('metronomeBpmRange');
@@ -870,38 +1087,53 @@ function bindMetronomeTab() {
   bpmRange.addEventListener('input', () => { setBpm(bpmRange.value); persistState(); });
   percent.addEventListener('change', () => { setPercent(percent.value); persistState(); });
   percentRange.addEventListener('input', () => { setPercent(percentRange.value); persistState(); });
+
+  document.getElementById('panel-metronome').querySelectorAll('.step-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const delta = Number(btn.dataset.step);
+      if (btn.dataset.stepTarget === 'metronomeBpm') {
+        setBpm(Number(bpm.value) + delta);
+      } else {
+        setPercent(Number(percent.value) + delta);
+      }
+      persistState();
+    });
+  });
 }
 
 bindMetronomeTab();
 
 let tapTimestamps = [];
 
-function activeBpmField() {
-  const tab = state.topBar.activeTab;
-  if (tab === 'ramp') return { input: document.getElementById('rampStartBpm'), key: 'ramp', prop: 'startBpm' };
-  if (tab === 'practice') return { input: document.getElementById('practiceBaseBpm'), key: 'practice', prop: 'baseBpm' };
-  return { input: document.getElementById('metronomeBpm'), key: 'metronome', prop: 'bpm' };
-}
+const BPM_FIELD_MAP = {
+  metronomeBpm: { key: 'metronome', prop: 'bpm', updatesHero: true },
+  rampStartBpm: { key: 'ramp', prop: 'startBpm', updatesHero: true },
+  rampStopBpm: { key: 'ramp', prop: 'stopBpm', updatesHero: false },
+  practiceBaseBpm: { key: 'practice', prop: 'baseBpm', updatesHero: true },
+};
 
-document.getElementById('tapTempo').addEventListener('click', () => {
-  const now = Date.now();
-  if (tapTimestamps.length > 0 && now - tapTimestamps[tapTimestamps.length - 1] > 2000) {
-    tapTimestamps = [];
-  }
-  tapTimestamps.push(now);
-  if (tapTimestamps.length > 8) tapTimestamps = tapTimestamps.slice(-8);
+document.querySelectorAll('.tapTempo').forEach((btn) => {
+  const input = btn.closest('.bpm-field').querySelector('input[type="number"]');
+  const target = BPM_FIELD_MAP[input.id];
 
-  const bpm = bpmFromTapTimestamps(tapTimestamps);
-  if (bpm === null) return;
+  btn.addEventListener('click', () => {
+    const now = Date.now();
+    if (tapTimestamps.length > 0 && now - tapTimestamps[tapTimestamps.length - 1] > 2000) {
+      tapTimestamps = [];
+    }
+    tapTimestamps.push(now);
+    if (tapTimestamps.length > 8) tapTimestamps = tapTimestamps.slice(-8);
 
-  const field = activeBpmField();
-  state[field.key][field.prop] = bpm;
-  field.input.value = bpm;
-  if (field.key === 'metronome') {
-    document.getElementById('metronomeBpmRange').value = bpm;
-  }
-  updateHeroBpm();
-  persistState();
+    const bpm = bpmFromTapTimestamps(tapTimestamps);
+    if (bpm === null) return;
+
+    state[target.key][target.prop] = bpm;
+    input.value = bpm;
+    const range = document.getElementById(input.id + 'Range');
+    if (range) range.value = bpm;
+    if (target.updatesHero) updateHeroBpm();
+    persistState();
+  });
 });
 
 function switchTab(tabName) {
@@ -924,22 +1156,29 @@ document.querySelectorAll('.tab-btn').forEach((btn) => {
 
 function bindRampTab() {
   const startBpm = document.getElementById('rampStartBpm');
+  const startBpmRange = document.getElementById('rampStartBpmRange');
   const stopBpm = document.getElementById('rampStopBpm');
+  const stopBpmRange = document.getElementById('rampStopBpmRange');
   const scaleMode = document.getElementById('rampScaleMode');
   const scaleAmount = document.getElementById('rampScaleAmount');
   const stepBars = document.getElementById('rampStepBars');
 
-  startBpm.addEventListener('change', () => {
-    state.ramp.startBpm = clampBpm(startBpm.value);
+  function setStartBpm(value) {
+    state.ramp.startBpm = clampBpm(value);
     startBpm.value = state.ramp.startBpm;
+    startBpmRange.value = state.ramp.startBpm;
     updateHeroBpm();
-    persistState();
-  });
-  stopBpm.addEventListener('change', () => {
-    state.ramp.stopBpm = clampBpm(stopBpm.value);
+  }
+  function setStopBpm(value) {
+    state.ramp.stopBpm = clampBpm(value);
     stopBpm.value = state.ramp.stopBpm;
-    persistState();
-  });
+    stopBpmRange.value = state.ramp.stopBpm;
+  }
+
+  startBpm.addEventListener('change', () => { setStartBpm(startBpm.value); persistState(); });
+  startBpmRange.addEventListener('input', () => { setStartBpm(startBpmRange.value); persistState(); });
+  stopBpm.addEventListener('change', () => { setStopBpm(stopBpm.value); persistState(); });
+  stopBpmRange.addEventListener('input', () => { setStopBpm(stopBpmRange.value); persistState(); });
   scaleMode.addEventListener('change', () => { state.ramp.scaleMode = scaleMode.value; persistState(); });
   scaleAmount.addEventListener('change', () => {
     const n = Number(scaleAmount.value);
@@ -952,28 +1191,60 @@ function bindRampTab() {
     stepBars.value = state.ramp.stepBars;
     persistState();
   });
+
+  document.getElementById('panel-ramp').querySelectorAll('.step-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const delta = Number(btn.dataset.step);
+      if (btn.dataset.stepTarget === 'rampStartBpm') {
+        setStartBpm(Number(startBpm.value) + delta);
+      } else {
+        setStopBpm(Number(stopBpm.value) + delta);
+      }
+      persistState();
+    });
+  });
 }
 
 bindRampTab();
 
 function bindPracticeTab() {
   const baseBpm = document.getElementById('practiceBaseBpm');
+  const baseBpmRange = document.getElementById('practiceBaseBpmRange');
   const deltaPercent = document.getElementById('practiceDeltaPercent');
+  const deltaPercentRange = document.getElementById('practiceDeltaPercentRange');
   const beatsPerPhase = document.getElementById('practiceBeatsPerPhase');
   const breakBeats = document.getElementById('practiceBreakBeats');
 
-  baseBpm.addEventListener('change', () => {
-    state.practice.baseBpm = clampBpm(baseBpm.value);
+  function setBaseBpm(value) {
+    state.practice.baseBpm = clampBpm(value);
     baseBpm.value = state.practice.baseBpm;
+    baseBpmRange.value = state.practice.baseBpm;
     updateHeroBpm();
-    persistState();
-  });
-  deltaPercent.addEventListener('change', () => {
-    const n = Math.round(Number(deltaPercent.value));
+  }
+  function setDeltaPercent(value) {
+    const n = Math.round(Number(value));
     state.practice.deltaPercent = Number.isFinite(n) ? Math.min(90, Math.max(10, n)) : DEFAULT_STATE.practice.deltaPercent;
     deltaPercent.value = state.practice.deltaPercent;
-    persistState();
+    deltaPercentRange.value = state.practice.deltaPercent;
+  }
+
+  baseBpm.addEventListener('change', () => { setBaseBpm(baseBpm.value); persistState(); });
+  baseBpmRange.addEventListener('input', () => { setBaseBpm(baseBpmRange.value); persistState(); });
+  deltaPercent.addEventListener('change', () => { setDeltaPercent(deltaPercent.value); persistState(); });
+  deltaPercentRange.addEventListener('input', () => { setDeltaPercent(deltaPercentRange.value); persistState(); });
+
+  document.getElementById('panel-practice').querySelectorAll('.step-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const delta = Number(btn.dataset.step);
+      if (btn.dataset.stepTarget === 'practiceBaseBpm') {
+        setBaseBpm(Number(baseBpm.value) + delta);
+      } else {
+        setDeltaPercent(Number(deltaPercent.value) + delta);
+      }
+      persistState();
+    });
   });
+
   beatsPerPhase.addEventListener('change', () => {
     state.practice.beatsPerPhase = clampPositiveInt(beatsPerPhase.value, DEFAULT_STATE.practice.beatsPerPhase);
     beatsPerPhase.value = state.practice.beatsPerPhase;
