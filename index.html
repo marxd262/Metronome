@@ -90,6 +90,10 @@ h1 {
   grid-column: 1 / -1;
 }
 
+#volumeValue {
+  font-variant-numeric: tabular-nums;
+}
+
 #tabs {
   display: flex;
   gap: var(--space-lg);
@@ -243,36 +247,30 @@ button {
   cursor: pointer;
 }
 
-.bpm-field {
-  position: relative;
-  display: block;
-}
-
-.bpm-field input[type="number"] {
-  width: 100%;
-  padding-right: 3.4rem;
-}
-
 .tapTempo {
-  position: absolute;
-  right: 0.35rem; /* clears the number input's reserved padding-right; coupled to that value, not a spacing-scale step */
-  top: 50%;
-  transform: translateY(-50%);
-  background: var(--bg);
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel);
   color: var(--text-muted);
   border: 1px solid var(--divider);
   border-radius: var(--radius);
-  padding: var(--space-3xs) var(--space-2xs);
-  font-size: var(--text-xs);
+  padding: 0 var(--space-md);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  transition: border-color var(--duration-fast) ease, color var(--duration-fast) ease;
+  transition: border-color var(--duration-fast) ease, color var(--duration-fast) ease, transform var(--duration-instant) ease;
 }
 
 .tapTempo:hover {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.tapTempo:active {
+  transform: scale(0.94);
 }
 
 .stepper-row {
@@ -281,7 +279,6 @@ button {
   align-items: stretch;
 }
 
-.stepper-row .bpm-field,
 .stepper-row input[type="number"] {
   flex: 1;
   min-width: 0;
@@ -358,8 +355,8 @@ button {
 .beat-dot {
   appearance: none;
   -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 2px solid transparent;
   border-radius: var(--radius-round);
@@ -371,13 +368,18 @@ button {
 .beat-dot.pulse { background: var(--accent); }
 .beat-dot.pulse.accent { background: var(--accent-beat); }
 
-#statusReadout,
+/* Group dots in 4s so long rows (practice phases up to 64 beats) stay countable at a glance */
+#beatIndicator .beat-dot:nth-child(4n):not(:last-child) {
+  margin-right: var(--space-2xs);
+}
+
 .readout {
   font-size: var(--text-xs);
   color: var(--text-muted);
   min-height: 1.2em;
   text-align: center;
   font-variant-numeric: tabular-nums;
+  margin-top: var(--space-2xs);
 }
 
 .phase-segment {
@@ -414,7 +416,8 @@ button {
         <option value="wood">Wood Block</option>
       </select>
     </label>
-    <label class="full">Volume
+    <label class="full">
+      <span>Volume <span id="volumeValue">80%</span></span>
       <input id="volume" type="range" min="0" max="100" step="1" value="80">
     </label>
   </div>
@@ -429,6 +432,8 @@ button {
     <div id="beatIndicator"></div>
     <div id="heroBpm">120</div>
     <div id="heroBpmLabel">BPM</div>
+    <div id="rampReadout" class="readout" hidden></div>
+    <div id="practiceReadout" class="readout" hidden></div>
   </div>
 
   <div id="panel-metronome" class="panel">
@@ -439,10 +444,8 @@ button {
           <button class="step-btn step-5" type="button" data-step-target="metronomeBpm" data-step="-5">&minus;5</button>
           <button class="step-btn" type="button" data-step-target="metronomeBpm" data-step="-1">&minus;</button>
         </div>
-        <span class="bpm-field">
-          <input id="metronomeBpm" type="number" min="20" max="400" step="1" value="120">
-          <button class="tapTempo" type="button">Tap</button>
-        </span>
+        <input id="metronomeBpm" type="number" min="20" max="400" step="1" value="120">
+        <button class="tapTempo" type="button">Tap</button>
         <div class="step-group">
           <button class="step-btn" type="button" data-step-target="metronomeBpm" data-step="1">&plus;</button>
           <button class="step-btn step-5" type="button" data-step-target="metronomeBpm" data-step="5">&plus;5</button>
@@ -475,10 +478,8 @@ button {
           <button class="step-btn step-5" type="button" data-step-target="rampStartBpm" data-step="-5">&minus;5</button>
           <button class="step-btn" type="button" data-step-target="rampStartBpm" data-step="-1">&minus;</button>
         </div>
-        <span class="bpm-field">
-          <input id="rampStartBpm" type="number" min="20" max="400" step="1" value="80">
-          <button class="tapTempo" type="button">Tap</button>
-        </span>
+        <input id="rampStartBpm" type="number" min="20" max="400" step="1" value="80">
+        <button class="tapTempo" type="button">Tap</button>
         <div class="step-group">
           <button class="step-btn" type="button" data-step-target="rampStartBpm" data-step="1">&plus;</button>
           <button class="step-btn step-5" type="button" data-step-target="rampStartBpm" data-step="5">&plus;5</button>
@@ -493,10 +494,8 @@ button {
           <button class="step-btn step-5" type="button" data-step-target="rampStopBpm" data-step="-5">&minus;5</button>
           <button class="step-btn" type="button" data-step-target="rampStopBpm" data-step="-1">&minus;</button>
         </div>
-        <span class="bpm-field">
-          <input id="rampStopBpm" type="number" min="20" max="400" step="1" value="140">
-          <button class="tapTempo" type="button">Tap</button>
-        </span>
+        <input id="rampStopBpm" type="number" min="20" max="400" step="1" value="140">
+        <button class="tapTempo" type="button">Tap</button>
         <div class="step-group">
           <button class="step-btn" type="button" data-step-target="rampStopBpm" data-step="1">&plus;</button>
           <button class="step-btn step-5" type="button" data-step-target="rampStopBpm" data-step="5">&plus;5</button>
@@ -510,9 +509,22 @@ button {
         <option value="fixed">Fixed BPM per step</option>
       </select>
     </label>
-    <label>Scale Amount <input id="rampScaleAmount" type="number" min="0.1" step="0.1" value="2"></label>
-    <label>Step Length (bars) <input id="rampStepBars" type="number" min="1" step="1" value="4"></label>
-    <div id="rampReadout" class="readout"></div>
+    <div class="field-group">
+      <label class="field-caption" for="rampScaleAmount">Scale Amount</label>
+      <div class="stepper-row">
+        <button class="step-btn" type="button" data-step-target="rampScaleAmount" data-step="-0.1">&minus;</button>
+        <input id="rampScaleAmount" type="number" min="0.1" step="0.1" value="2">
+        <button class="step-btn" type="button" data-step-target="rampScaleAmount" data-step="0.1">&plus;</button>
+      </div>
+    </div>
+    <div class="field-group">
+      <label class="field-caption" for="rampStepBars">Step Length (bars)</label>
+      <div class="stepper-row">
+        <button class="step-btn" type="button" data-step-target="rampStepBars" data-step="-1">&minus;</button>
+        <input id="rampStepBars" type="number" min="1" step="1" value="4">
+        <button class="step-btn" type="button" data-step-target="rampStepBars" data-step="1">&plus;</button>
+      </div>
+    </div>
   </div>
 
   <div id="panel-practice" class="panel" hidden>
@@ -523,10 +535,8 @@ button {
           <button class="step-btn step-5" type="button" data-step-target="practiceBaseBpm" data-step="-5">&minus;5</button>
           <button class="step-btn" type="button" data-step-target="practiceBaseBpm" data-step="-1">&minus;</button>
         </div>
-        <span class="bpm-field">
-          <input id="practiceBaseBpm" type="number" min="20" max="400" step="1" value="120">
-          <button class="tapTempo" type="button">Tap</button>
-        </span>
+        <input id="practiceBaseBpm" type="number" min="20" max="400" step="1" value="120">
+        <button class="tapTempo" type="button">Tap</button>
         <div class="step-group">
           <button class="step-btn" type="button" data-step-target="practiceBaseBpm" data-step="1">&plus;</button>
           <button class="step-btn step-5" type="button" data-step-target="practiceBaseBpm" data-step="5">&plus;5</button>
@@ -549,14 +559,26 @@ button {
       </div>
       <input id="practiceDeltaPercentRange" type="range" min="10" max="90" step="1" value="50">
     </div>
-    <label>Beats per Phase <input id="practiceBeatsPerPhase" type="number" min="1" max="64" step="1" value="4"></label>
-    <label>Break Length (beats) <input id="practiceBreakBeats" type="number" min="1" max="64" step="1" value="4"></label>
-    <div id="practiceReadout" class="readout"></div>
+    <div class="field-group">
+      <label class="field-caption" for="practiceBeatsPerPhase">Beats per Phase</label>
+      <div class="stepper-row">
+        <button class="step-btn" type="button" data-step-target="practiceBeatsPerPhase" data-step="-1">&minus;</button>
+        <input id="practiceBeatsPerPhase" type="number" min="1" max="64" step="1" value="4">
+        <button class="step-btn" type="button" data-step-target="practiceBeatsPerPhase" data-step="1">&plus;</button>
+      </div>
+    </div>
+    <div class="field-group">
+      <label class="field-caption" for="practiceBreakBeats">Break Length (beats)</label>
+      <div class="stepper-row">
+        <button class="step-btn" type="button" data-step-target="practiceBreakBeats" data-step="-1">&minus;</button>
+        <input id="practiceBreakBeats" type="number" min="1" max="64" step="1" value="4">
+        <button class="step-btn" type="button" data-step-target="practiceBreakBeats" data-step="1">&plus;</button>
+      </div>
+    </div>
   </div>
 
   <div id="controls">
     <button id="startStop" type="button">Start</button>
-    <div id="statusReadout"></div>
   </div>
 
 <script>
@@ -719,6 +741,7 @@ function refreshAllInputsFromState() {
   document.getElementById('subdivision').value = state.topBar.subdivision;
   document.getElementById('soundStyle').value = state.topBar.soundStyle;
   document.getElementById('volume').value = state.topBar.volume;
+  document.getElementById('volumeValue').textContent = state.topBar.volume + '%';
 
   document.getElementById('metronomeBpm').value = state.metronome.bpm;
   document.getElementById('metronomeBpmRange').value = state.metronome.bpm;
@@ -767,6 +790,7 @@ function bindTopBar() {
   });
   volume.addEventListener('input', () => {
     state.topBar.volume = Number(volume.value);
+    document.getElementById('volumeValue').textContent = state.topBar.volume + '%';
     persistState();
   });
 }
@@ -958,7 +982,8 @@ function advanceModeAfterBeat() {
 function scheduleBeat(time) {
   const bpm = currentModeBpm();
   const beatIndex = beatIndexInBar;
-  const isPracticeMode = state.topBar.activeTab === 'practice' && practiceRuntime;
+  const scheduledTab = state.topBar.activeTab;
+  const isPracticeMode = scheduledTab === 'practice' && practiceRuntime;
   const isPracticeBreak = isPracticeMode && practiceRuntime.sequence[practiceRuntime.index] === 'break';
   const accent = !isPracticeBreak && isAccentBeat(beatIndex, state.topBar.accentPattern);
   scheduleClick(time, accent, false);
@@ -985,13 +1010,13 @@ function scheduleBeat(time) {
 
   const ctx = ensureAudioContext();
   setTimeout(() => {
-    if (isPlaying && dotCount !== null && state.topBar.activeTab === 'practice' && practiceRuntime === dotRuntime
+    if (!isPlaying || state.topBar.activeTab !== scheduledTab) return;
+    if (dotCount !== null && practiceRuntime === dotRuntime
         && document.getElementById('beatIndicator').children.length !== dotCount) {
       renderPracticeProgressDots(dotCount);
     }
     flashBeatIndicator(dotIndex, accent);
     updateHeroBpm(bpm);
-    if (!isPlaying) return;
     if (rampDisplay) updateRampReadout(rampDisplay);
     if (practiceSegment !== null) updatePracticeReadout(practiceSegment);
   }, Math.max(0, (time - ctx.currentTime) * 1000));
@@ -1088,14 +1113,16 @@ function bindMetronomeTab() {
   percent.addEventListener('change', () => { setPercent(percent.value); persistState(); });
   percentRange.addEventListener('input', () => { setPercent(percentRange.value); persistState(); });
 
+  const stepperFields = {
+    metronomeBpm: { input: bpm, set: setBpm },
+    metronomePercent: { input: percent, set: setPercent },
+  };
+
   document.getElementById('panel-metronome').querySelectorAll('.step-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const delta = Number(btn.dataset.step);
-      if (btn.dataset.stepTarget === 'metronomeBpm') {
-        setBpm(Number(bpm.value) + delta);
-      } else {
-        setPercent(Number(percent.value) + delta);
-      }
+      const field = stepperFields[btn.dataset.stepTarget];
+      field.set(Number(field.input.value) + delta);
       persistState();
     });
   });
@@ -1113,7 +1140,7 @@ const BPM_FIELD_MAP = {
 };
 
 document.querySelectorAll('.tapTempo').forEach((btn) => {
-  const input = btn.closest('.bpm-field').querySelector('input[type="number"]');
+  const input = btn.previousElementSibling;
   const target = BPM_FIELD_MAP[input.id];
 
   btn.addEventListener('click', () => {
@@ -1147,6 +1174,8 @@ function switchTab(tabName) {
   document.getElementById('panel-metronome').hidden = tabName !== 'metronome';
   document.getElementById('panel-ramp').hidden = tabName !== 'ramp';
   document.getElementById('panel-practice').hidden = tabName !== 'practice';
+  document.getElementById('rampReadout').hidden = tabName !== 'ramp';
+  document.getElementById('practiceReadout').hidden = tabName !== 'practice';
   updateHeroBpm();
 }
 
@@ -1174,32 +1203,36 @@ function bindRampTab() {
     stopBpm.value = state.ramp.stopBpm;
     stopBpmRange.value = state.ramp.stopBpm;
   }
+  function setScaleAmount(value) {
+    const n = Number(value);
+    state.ramp.scaleAmount = Number.isFinite(n) && n > 0 ? Math.round(n * 10) / 10 : DEFAULT_STATE.ramp.scaleAmount;
+    scaleAmount.value = state.ramp.scaleAmount;
+  }
+  function setStepBars(value) {
+    state.ramp.stepBars = clampPositiveInt(value, DEFAULT_STATE.ramp.stepBars);
+    stepBars.value = state.ramp.stepBars;
+  }
 
   startBpm.addEventListener('change', () => { setStartBpm(startBpm.value); persistState(); });
   startBpmRange.addEventListener('input', () => { setStartBpm(startBpmRange.value); persistState(); });
   stopBpm.addEventListener('change', () => { setStopBpm(stopBpm.value); persistState(); });
   stopBpmRange.addEventListener('input', () => { setStopBpm(stopBpmRange.value); persistState(); });
   scaleMode.addEventListener('change', () => { state.ramp.scaleMode = scaleMode.value; persistState(); });
-  scaleAmount.addEventListener('change', () => {
-    const n = Number(scaleAmount.value);
-    state.ramp.scaleAmount = Number.isFinite(n) && n > 0 ? n : DEFAULT_STATE.ramp.scaleAmount;
-    scaleAmount.value = state.ramp.scaleAmount;
-    persistState();
-  });
-  stepBars.addEventListener('change', () => {
-    state.ramp.stepBars = clampPositiveInt(stepBars.value, DEFAULT_STATE.ramp.stepBars);
-    stepBars.value = state.ramp.stepBars;
-    persistState();
-  });
+  scaleAmount.addEventListener('change', () => { setScaleAmount(scaleAmount.value); persistState(); });
+  stepBars.addEventListener('change', () => { setStepBars(stepBars.value); persistState(); });
+
+  const stepperFields = {
+    rampStartBpm: { input: startBpm, set: setStartBpm },
+    rampStopBpm: { input: stopBpm, set: setStopBpm },
+    rampScaleAmount: { input: scaleAmount, set: setScaleAmount },
+    rampStepBars: { input: stepBars, set: setStepBars },
+  };
 
   document.getElementById('panel-ramp').querySelectorAll('.step-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const delta = Number(btn.dataset.step);
-      if (btn.dataset.stepTarget === 'rampStartBpm') {
-        setStartBpm(Number(startBpm.value) + delta);
-      } else {
-        setStopBpm(Number(stopBpm.value) + delta);
-      }
+      const field = stepperFields[btn.dataset.stepTarget];
+      field.set(Number(field.input.value) + delta);
       persistState();
     });
   });
@@ -1227,33 +1260,36 @@ function bindPracticeTab() {
     deltaPercent.value = state.practice.deltaPercent;
     deltaPercentRange.value = state.practice.deltaPercent;
   }
+  function setBeatsPerPhase(value) {
+    state.practice.beatsPerPhase = clampPositiveInt(value, DEFAULT_STATE.practice.beatsPerPhase);
+    beatsPerPhase.value = state.practice.beatsPerPhase;
+  }
+  function setBreakBeats(value) {
+    state.practice.breakBeats = clampPositiveInt(value, DEFAULT_STATE.practice.breakBeats);
+    breakBeats.value = state.practice.breakBeats;
+  }
 
   baseBpm.addEventListener('change', () => { setBaseBpm(baseBpm.value); persistState(); });
   baseBpmRange.addEventListener('input', () => { setBaseBpm(baseBpmRange.value); persistState(); });
   deltaPercent.addEventListener('change', () => { setDeltaPercent(deltaPercent.value); persistState(); });
   deltaPercentRange.addEventListener('input', () => { setDeltaPercent(deltaPercentRange.value); persistState(); });
+  beatsPerPhase.addEventListener('change', () => { setBeatsPerPhase(beatsPerPhase.value); persistState(); });
+  breakBeats.addEventListener('change', () => { setBreakBeats(breakBeats.value); persistState(); });
+
+  const stepperFields = {
+    practiceBaseBpm: { input: baseBpm, set: setBaseBpm },
+    practiceDeltaPercent: { input: deltaPercent, set: setDeltaPercent },
+    practiceBeatsPerPhase: { input: beatsPerPhase, set: setBeatsPerPhase },
+    practiceBreakBeats: { input: breakBeats, set: setBreakBeats },
+  };
 
   document.getElementById('panel-practice').querySelectorAll('.step-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const delta = Number(btn.dataset.step);
-      if (btn.dataset.stepTarget === 'practiceBaseBpm') {
-        setBaseBpm(Number(baseBpm.value) + delta);
-      } else {
-        setDeltaPercent(Number(deltaPercent.value) + delta);
-      }
+      const field = stepperFields[btn.dataset.stepTarget];
+      field.set(Number(field.input.value) + delta);
       persistState();
     });
-  });
-
-  beatsPerPhase.addEventListener('change', () => {
-    state.practice.beatsPerPhase = clampPositiveInt(beatsPerPhase.value, DEFAULT_STATE.practice.beatsPerPhase);
-    beatsPerPhase.value = state.practice.beatsPerPhase;
-    persistState();
-  });
-  breakBeats.addEventListener('change', () => {
-    state.practice.breakBeats = clampPositiveInt(breakBeats.value, DEFAULT_STATE.practice.breakBeats);
-    breakBeats.value = state.practice.breakBeats;
-    persistState();
   });
 }
 
