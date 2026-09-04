@@ -121,6 +121,7 @@ h1 {
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--tracking-wider);
   text-transform: uppercase;
+  text-wrap: balance;
   color: var(--text-muted);
   text-align: center;
   margin: 0 0 var(--space-xl);
@@ -314,8 +315,6 @@ button {
   padding: 0 var(--space-md);
   font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
   transition: border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard), transform var(--duration-instant) var(--ease-standard);
 }
 
@@ -416,12 +415,20 @@ button {
   border: 2px solid transparent;
   border-radius: var(--radius-round);
   background: var(--dot-idle);
-  transition: background-color var(--duration-instant) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
+  transition: background-color var(--duration-instant) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), filter var(--duration-fast) var(--ease-standard), transform var(--duration-instant) var(--ease-standard);
 }
 
 .beat-dot.accented { border-color: var(--accent-beat); }
 .beat-dot.pulse { background: var(--accent); }
 .beat-dot.pulse.accent { background: var(--accent-beat); }
+
+/* Hover/active only ever match the accent-editor <button> dots, never the
+   non-interactive practice-progress <div> dots rendered during Practice
+   playback — so the row correctly stops signaling "clickable" the moment
+   it stops being clickable. */
+button.beat-dot:hover { filter: brightness(1.25); }
+button.beat-dot:not(.accented):hover { border-color: var(--accent); }
+button.beat-dot:active { transform: scale(0.94); }
 
 /* Group dots in 4s so long rows (practice phases up to 64 beats) stay countable at a glance */
 #beatIndicator .beat-dot:nth-child(4n):not(:last-child) {
@@ -433,6 +440,7 @@ button {
   color: var(--text-muted);
   min-height: 1.2em;
   text-align: center;
+  text-wrap: pretty;
   font-variant-numeric: tabular-nums;
   margin-top: var(--space-2xs);
 }
@@ -1006,7 +1014,7 @@ function updateRampReadout(explicitDisplay) {
     : (rampRuntime ? { currentBpm: rampRuntime.currentBpm, direction: rampRuntime.direction } : null);
   if (!display) return;
   document.getElementById('rampReadout').textContent =
-    `Current: ${display.currentBpm} BPM` + (display.direction === null ? ' (holding at target)' : '');
+    `Current: ${display.currentBpm} BPM` + (display.direction === null ? ' (holding at target)' : '');
 }
 
 const PHASE_SEGMENT_LABELS = ['SLOW', 'BREAK', 'FAST', 'BREAK'];
@@ -1016,7 +1024,7 @@ function buildPhaseSegmentSpans() {
   const el = document.getElementById('practiceReadout');
   el.innerHTML = '';
   phaseSegmentSpans = PHASE_SEGMENT_LABELS.map((label, i) => {
-    if (i > 0) el.appendChild(document.createTextNode(' - '));
+    if (i > 0) el.appendChild(document.createTextNode(' – '));
     const span = document.createElement('span');
     span.className = 'phase-segment';
     span.textContent = label;
