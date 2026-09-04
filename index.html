@@ -6,22 +6,62 @@
 <title>Guitar Practice Metronome</title>
 <style>
 :root {
-  --bg: #15151a;
-  --panel: #1e1e25;
-  --divider: #2a2a33;
-  --text: #e8e8ec;
-  --text-muted: #9ba0a8;
-  --accent: #f5a623;
-  --accent-beat: #e5484d;
-  --on-accent: #1a1305;
-  --dot-idle: #666672;
+  color-scheme: dark;
+
+  /* ── Primitives — raw values, named for what they are ── */
+  --neutral-975: #0e0e12;
+  --neutral-950: #15151a;
+  --neutral-900: #1e1e25;
+  --neutral-850: #26262f;
+  --neutral-800: #2a2a33;
+  --neutral-500: #666672;
+  --neutral-300: #9ba0a8;
+  --neutral-100: #e8e8ec;
+  --accent-500:  #f5a623;
+  --accent-950:  #1a1305;
+  --red-500:     #e5484d;
+
+  /* ── Semantics — same roles as before, now sourced from primitives ── */
+  --bg:          var(--neutral-950);
+  --panel:       var(--neutral-900);
+  --divider:     var(--neutral-800);
+  --text:        var(--neutral-100);
+  --text-muted:  var(--neutral-300);
+  --accent:      var(--accent-500);
+  --accent-beat: var(--red-500);
+  --on-accent:   var(--accent-950);
+  --dot-idle:    var(--neutral-500);
+
+  /* Surface stack — canvas/raised (--bg/--panel) are the only two levels in
+     active use today. The rest are reserved: nothing in the app currently
+     opens a modal/sheet, has an inset/code area, or shows an inverted block. */
+  --overlay: var(--neutral-800);
+  --sunken:  var(--neutral-975);
+  --inverse: var(--neutral-100);
+
   --radius: 8px;
   --radius-lg: 999px;
   --radius-round: 50%;
 
+  /* Shadows — reserved. Nothing in the app floats or overlaps yet (no
+     modals/dropdowns/tooltips), so these are unused today. Calibrated with
+     higher alpha than a typical light-mode scale, since a shadow needs more
+     contrast punch to read against a near-black canvas. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.4), 0 4px 8px rgba(0, 0, 0, 0.3);
+
+  /* Z-index — reserved. No stacking contexts exist yet (native <select>
+     handles its own popup layer); add finer steps only when a real
+     dropdown/modal/toast gets built. */
+  --z-base:    0;
+  --z-raised:  1;
+  --z-overlay: 10;
+
   /* Motion */
   --duration-instant: 0.05s;
   --duration-fast: 0.15s;
+  --ease-standard: ease;
 
   /* Type weight */
   --font-weight-semibold: 600;
@@ -32,6 +72,17 @@
   --text-sm:   0.875rem;
   --text-base: 1rem;
   --text-hero: 4rem;
+
+  /* Leading */
+  --leading-none:   1;
+  --leading-normal: 1.45;
+
+  /* Tracking */
+  --tracking-tight:  -0.02em;
+  --tracking-snug:    0.02em;
+  --tracking-wide:    0.04em;
+  --tracking-wider:   0.12em;
+  --tracking-widest:  0.15em;
 
   /* Spacing scale */
   --space-3xs: 0.25rem;
@@ -62,13 +113,13 @@ body {
   max-width: 480px;
   margin: var(--space-2xl) auto;
   padding: 0 var(--space-md) var(--space-3xl);
-  line-height: 1.45;
+  line-height: var(--leading-normal);
 }
 
 h1 {
   font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.12em;
+  letter-spacing: var(--tracking-wider);
   text-transform: uppercase;
   color: var(--text-muted);
   text-align: center;
@@ -77,7 +128,7 @@ h1 {
 
 #topbar {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--space-sm) var(--space-lg);
   align-items: end;
   padding-bottom: var(--space-md);
@@ -111,7 +162,7 @@ h1 {
   margin-bottom: -1px;
   cursor: pointer;
   border-bottom: 2px solid transparent;
-  transition: color var(--duration-fast) ease;
+  transition: color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
 }
 
 .tab-btn:hover { color: var(--text); }
@@ -141,15 +192,15 @@ h1 {
 #heroBpm {
   font-size: var(--text-hero);
   font-weight: var(--font-weight-bold);
-  line-height: 1;
-  letter-spacing: -0.02em;
+  line-height: var(--leading-none);
+  letter-spacing: var(--tracking-tight);
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 
 #heroBpmLabel {
   font-size: var(--text-xs);
-  letter-spacing: 0.15em;
+  letter-spacing: var(--tracking-widest);
   text-transform: uppercase;
   color: var(--text-muted);
   margin-top: 0.35rem;
@@ -179,7 +230,7 @@ select {
   font-size: var(--text-base);
   font-variant-numeric: tabular-nums;
   outline: none;
-  transition: border-color var(--duration-fast) ease;
+  transition: border-color var(--duration-fast) var(--ease-standard);
 }
 
 input[type="number"]::-webkit-inner-spin-button,
@@ -195,6 +246,10 @@ input[type="number"] {
 input[type="number"]:focus,
 select:focus {
   border-color: var(--accent);
+}
+
+input[type="number"].clamped {
+  border-color: var(--accent-beat);
 }
 
 input[type="range"]:focus-visible,
@@ -259,9 +314,9 @@ button {
   padding: 0 var(--space-md);
   font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
-  transition: border-color var(--duration-fast) ease, color var(--duration-fast) ease, transform var(--duration-instant) ease;
+  transition: border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard), transform var(--duration-instant) var(--ease-standard);
 }
 
 .tapTempo:hover {
@@ -302,7 +357,7 @@ button {
   font: inherit;
   font-size: var(--text-base);
   font-weight: var(--font-weight-semibold);
-  transition: background var(--duration-fast) ease, border-color var(--duration-fast) ease, color var(--duration-fast) ease, transform var(--duration-instant) ease;
+  transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard), transform var(--duration-instant) var(--ease-standard);
 }
 
 .step-btn.step-5 {
@@ -312,7 +367,7 @@ button {
 }
 
 .step-btn:hover {
-  background: #26262f;
+  background: var(--neutral-850);
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -337,8 +392,8 @@ button {
   padding: var(--space-sm) var(--space-3xl);
   font-size: var(--text-base);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.02em;
-  transition: filter var(--duration-fast) ease, transform var(--duration-instant) ease;
+  letter-spacing: var(--tracking-snug);
+  transition: filter var(--duration-fast) var(--ease-standard), transform var(--duration-instant) var(--ease-standard);
 }
 
 #startStop:hover { filter: brightness(1.08); }
@@ -361,7 +416,7 @@ button {
   border: 2px solid transparent;
   border-radius: var(--radius-round);
   background: var(--dot-idle);
-  transition: background-color var(--duration-instant) ease, border-color var(--duration-fast) ease;
+  transition: background-color var(--duration-instant) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
 }
 
 .beat-dot.accented { border-color: var(--accent-beat); }
@@ -383,7 +438,7 @@ button {
 }
 
 .phase-segment {
-  transition: font-size var(--duration-fast) ease, text-shadow var(--duration-fast) ease, color var(--duration-fast) ease;
+  transition: font-size var(--duration-fast) var(--ease-standard), text-shadow var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
 
 .phase-segment.active {
@@ -398,9 +453,6 @@ button {
   <h1>Guitar Practice&nbsp;Metronome</h1>
 
   <div id="topbar">
-    <label>Beats per Bar
-      <input id="timeSigNum" type="number" min="1" max="16" step="1" value="4">
-    </label>
     <label>Subdivision
       <select id="subdivision">
         <option value="none">None</option>
@@ -468,6 +520,14 @@ button {
       </div>
       <input id="metronomePercentRange" type="range" min="50" max="150" step="1" value="100">
     </div>
+    <div class="field-group">
+      <label class="field-caption" for="metronomeTimeSig">Beats per Bar</label>
+      <div class="stepper-row">
+        <button class="step-btn" type="button" data-step-target="metronomeTimeSig" data-step="-1">&minus;</button>
+        <input id="metronomeTimeSig" type="number" min="1" max="16" step="1" value="4">
+        <button class="step-btn" type="button" data-step-target="metronomeTimeSig" data-step="1">&plus;</button>
+      </div>
+    </div>
   </div>
 
   <div id="panel-ramp" class="panel" hidden>
@@ -518,6 +578,14 @@ button {
       </div>
     </div>
     <div class="field-group">
+      <label class="field-caption" for="rampTimeSig">Beats per Bar</label>
+      <div class="stepper-row">
+        <button class="step-btn" type="button" data-step-target="rampTimeSig" data-step="-1">&minus;</button>
+        <input id="rampTimeSig" type="number" min="1" max="16" step="1" value="4">
+        <button class="step-btn" type="button" data-step-target="rampTimeSig" data-step="1">&plus;</button>
+      </div>
+    </div>
+    <div class="field-group">
       <label class="field-caption" for="rampStepBars">Step Length (bars)</label>
       <div class="stepper-row">
         <button class="step-btn" type="button" data-step-target="rampStepBars" data-step="-1">&minus;</button>
@@ -560,11 +628,19 @@ button {
       <input id="practiceDeltaPercentRange" type="range" min="10" max="90" step="1" value="50">
     </div>
     <div class="field-group">
-      <label class="field-caption" for="practiceBeatsPerPhase">Beats per Phase</label>
+      <label class="field-caption" for="practiceTimeSig">Beats per Bar</label>
       <div class="stepper-row">
-        <button class="step-btn" type="button" data-step-target="practiceBeatsPerPhase" data-step="-1">&minus;</button>
-        <input id="practiceBeatsPerPhase" type="number" min="1" max="64" step="1" value="4">
-        <button class="step-btn" type="button" data-step-target="practiceBeatsPerPhase" data-step="1">&plus;</button>
+        <button class="step-btn" type="button" data-step-target="practiceTimeSig" data-step="-1">&minus;</button>
+        <input id="practiceTimeSig" type="number" min="1" max="16" step="1" value="4">
+        <button class="step-btn" type="button" data-step-target="practiceTimeSig" data-step="1">&plus;</button>
+      </div>
+    </div>
+    <div class="field-group">
+      <label class="field-caption" for="practiceBarsPerPhase">Bars per Phase</label>
+      <div class="stepper-row">
+        <button class="step-btn" type="button" data-step-target="practiceBarsPerPhase" data-step="-1">&minus;</button>
+        <input id="practiceBarsPerPhase" type="number" min="1" step="1" value="1">
+        <button class="step-btn" type="button" data-step-target="practiceBarsPerPhase" data-step="1">&plus;</button>
       </div>
     </div>
     <div class="field-group">
@@ -698,6 +774,14 @@ function clampPositiveInt(value, fallback) {
   return n;
 }
 
+function wasValueClamped(rawValue, clampedValue, decimals) {
+  const n = Number(rawValue);
+  if (!Number.isFinite(n)) return true;
+  const scale = Math.pow(10, decimals || 0);
+  const rounded = Math.round(n * scale) / scale;
+  return rounded !== clampedValue;
+}
+
 function resizeAccentPattern(pattern, newLength) {
   const result = [];
   for (let i = 0; i < newLength; i++) {
@@ -723,21 +807,35 @@ function practicePhasePosition(sequenceIndex, beatsPerPhase, breakBeats) {
 </script>
 <script>
 const DEFAULT_STATE = {
-  topBar: { timeSigNum: 4, subdivision: 'none', soundStyle: 'click', volume: 80, activeTab: 'metronome', accentPattern: [true, false, false, false] },
-  metronome: { bpm: 120, percent: 100 },
-  ramp: { startBpm: 80, stopBpm: 140, scaleMode: 'percent', scaleAmount: 2, stepBars: 4 },
-  practice: { baseBpm: 120, deltaPercent: 50, beatsPerPhase: 4, breakBeats: 4 },
+  topBar: { subdivision: 'none', soundStyle: 'click', volume: 80, activeTab: 'metronome' },
+  metronome: { bpm: 120, percent: 100, timeSigNum: 4, accentPattern: [true, false, false, false] },
+  ramp: { startBpm: 80, stopBpm: 140, scaleMode: 'percent', scaleAmount: 2, stepBars: 4, timeSigNum: 4, accentPattern: [true, false, false, false] },
+  practice: { baseBpm: 120, deltaPercent: 50, timeSigNum: 4, barsPerPhase: 1, breakBeats: 4, accentPattern: [true, false, false, false] },
 };
 
 const STORAGE_KEY = 'guitarMetronomeSettings';
 let state = deserializeSettings(localStorage.getItem(STORAGE_KEY), DEFAULT_STATE);
+['metronome', 'ramp', 'practice'].forEach((mode) => {
+  state[mode].accentPattern = resizeAccentPattern(state[mode].accentPattern, state[mode].timeSigNum);
+});
 
 function persistState() {
   localStorage.setItem(STORAGE_KEY, serializeSettings(state));
 }
 
+function activeModeState() {
+  return state[state.topBar.activeTab];
+}
+
+const CLAMP_FLASH_MS = 500;
+
+function flashClamped(inputEl) {
+  inputEl.classList.add('clamped');
+  clearTimeout(inputEl._clampFlashTimer);
+  inputEl._clampFlashTimer = setTimeout(() => inputEl.classList.remove('clamped'), CLAMP_FLASH_MS);
+}
+
 function refreshAllInputsFromState() {
-  document.getElementById('timeSigNum').value = state.topBar.timeSigNum;
   document.getElementById('subdivision').value = state.topBar.subdivision;
   document.getElementById('soundStyle').value = state.topBar.soundStyle;
   document.getElementById('volume').value = state.topBar.volume;
@@ -747,6 +845,7 @@ function refreshAllInputsFromState() {
   document.getElementById('metronomeBpmRange').value = state.metronome.bpm;
   document.getElementById('metronomePercent').value = state.metronome.percent;
   document.getElementById('metronomePercentRange').value = state.metronome.percent;
+  document.getElementById('metronomeTimeSig').value = state.metronome.timeSigNum;
 
   document.getElementById('rampStartBpm').value = state.ramp.startBpm;
   document.getElementById('rampStartBpmRange').value = state.ramp.startBpm;
@@ -754,13 +853,15 @@ function refreshAllInputsFromState() {
   document.getElementById('rampStopBpmRange').value = state.ramp.stopBpm;
   document.getElementById('rampScaleMode').value = state.ramp.scaleMode;
   document.getElementById('rampScaleAmount').value = state.ramp.scaleAmount;
+  document.getElementById('rampTimeSig').value = state.ramp.timeSigNum;
   document.getElementById('rampStepBars').value = state.ramp.stepBars;
 
   document.getElementById('practiceBaseBpm').value = state.practice.baseBpm;
   document.getElementById('practiceBaseBpmRange').value = state.practice.baseBpm;
   document.getElementById('practiceDeltaPercent').value = state.practice.deltaPercent;
   document.getElementById('practiceDeltaPercentRange').value = state.practice.deltaPercent;
-  document.getElementById('practiceBeatsPerPhase').value = state.practice.beatsPerPhase;
+  document.getElementById('practiceTimeSig').value = state.practice.timeSigNum;
+  document.getElementById('practiceBarsPerPhase').value = state.practice.barsPerPhase;
   document.getElementById('practiceBreakBeats').value = state.practice.breakBeats;
 
   const validTabs = ['metronome', 'ramp', 'practice'];
@@ -769,17 +870,10 @@ function refreshAllInputsFromState() {
 }
 
 function bindTopBar() {
-  const timeSigNum = document.getElementById('timeSigNum');
   const subdivision = document.getElementById('subdivision');
   const soundStyle = document.getElementById('soundStyle');
   const volume = document.getElementById('volume');
 
-  timeSigNum.addEventListener('input', () => {
-    state.topBar.timeSigNum = clampPositiveInt(timeSigNum.value, DEFAULT_STATE.topBar.timeSigNum);
-    state.topBar.accentPattern = resizeAccentPattern(state.topBar.accentPattern, state.topBar.timeSigNum);
-    if (!(isPlaying && state.topBar.activeTab === 'practice')) renderBeatDots();
-    persistState();
-  });
   subdivision.addEventListener('change', () => {
     state.topBar.subdivision = subdivision.value;
     persistState();
@@ -849,7 +943,7 @@ function renderBeatDots() {
   const container = document.getElementById('beatIndicator');
   container.removeAttribute('aria-hidden');
   container.innerHTML = '';
-  const n = state.topBar.timeSigNum;
+  const n = activeModeState().timeSigNum;
   for (let i = 0; i < n; i++) {
     const dot = document.createElement('button');
     dot.type = 'button';
@@ -872,16 +966,17 @@ function renderPracticeProgressDots(count) {
 }
 
 function toggleAccent(index) {
-  const pattern = state.topBar.accentPattern.slice();
+  const mode = activeModeState();
+  const pattern = mode.accentPattern.slice();
   pattern[index] = !pattern[index];
-  state.topBar.accentPattern = pattern;
+  mode.accentPattern = pattern;
   updateAccentDotStyles();
   persistState();
 }
 
 function updateAccentDotStyles() {
   const dots = document.getElementById('beatIndicator').children;
-  state.topBar.accentPattern.forEach((accented, i) => {
+  activeModeState().accentPattern.forEach((accented, i) => {
     const dot = dots[i];
     if (!dot) return;
     dot.classList.toggle('accented', accented);
@@ -965,7 +1060,7 @@ function updateHeroBpm(explicitBpm) {
 function advanceModeAfterBeat() {
   if (state.topBar.activeTab === 'ramp' && rampRuntime) {
     rampRuntime.beatsIntoStep++;
-    const beatsPerStep = barsToBeats(state.ramp.stepBars, state.topBar.timeSigNum);
+    const beatsPerStep = barsToBeats(state.ramp.stepBars, state.ramp.timeSigNum);
     if (rampRuntime.direction !== null && rampRuntime.beatsIntoStep >= beatsPerStep) {
       rampRuntime.currentBpm = computeNextRampBpm(
         rampRuntime.currentBpm, rampRuntime.direction, state.ramp.scaleMode,
@@ -983,9 +1078,10 @@ function scheduleBeat(time) {
   const bpm = currentModeBpm();
   const beatIndex = beatIndexInBar;
   const scheduledTab = state.topBar.activeTab;
+  const modeState = state[scheduledTab];
   const isPracticeMode = scheduledTab === 'practice' && practiceRuntime;
   const isPracticeBreak = isPracticeMode && practiceRuntime.sequence[practiceRuntime.index] === 'break';
-  const accent = !isPracticeBreak && isAccentBeat(beatIndex, state.topBar.accentPattern);
+  const accent = !isPracticeBreak && isAccentBeat(beatIndex, modeState.accentPattern);
   scheduleClick(time, accent, false);
 
   const subCount = subdivisionCount(state.topBar.subdivision);
@@ -1021,7 +1117,7 @@ function scheduleBeat(time) {
     if (practiceSegment !== null) updatePracticeReadout(practiceSegment);
   }, Math.max(0, (time - ctx.currentTime) * 1000));
 
-  beatIndexInBar = (beatIndexInBar + 1) % state.topBar.timeSigNum;
+  beatIndexInBar = (beatIndexInBar + 1) % modeState.timeSigNum;
   advanceModeAfterBeat();
   nextNoteTime = time + beatIntervalSeconds(bpm);
 }
@@ -1050,9 +1146,10 @@ function startPlayback() {
     updateRampReadout();
   }
   if (state.topBar.activeTab === 'practice') {
+    const beatsPerPhase = barsToBeats(state.practice.barsPerPhase, state.practice.timeSigNum);
     practiceRuntime = {
-      sequence: buildPracticePhaseSequence(state.practice.beatsPerPhase, state.practice.breakBeats),
-      beatsPerPhase: state.practice.beatsPerPhase,
+      sequence: buildPracticePhaseSequence(beatsPerPhase, state.practice.breakBeats),
+      beatsPerPhase: beatsPerPhase,
       breakBeats: state.practice.breakBeats,
       index: 0,
     };
@@ -1094,28 +1191,43 @@ function bindMetronomeTab() {
   const bpmRange = document.getElementById('metronomeBpmRange');
   const percent = document.getElementById('metronomePercent');
   const percentRange = document.getElementById('metronomePercentRange');
+  const timeSig = document.getElementById('metronomeTimeSig');
 
   function setBpm(value) {
-    state.metronome.bpm = clampBpm(value);
+    const clamped = clampBpm(value);
+    if (wasValueClamped(value, clamped, 0)) flashClamped(bpm);
+    state.metronome.bpm = clamped;
     bpm.value = state.metronome.bpm;
     bpmRange.value = state.metronome.bpm;
     updateHeroBpm();
   }
   function setPercent(value) {
-    state.metronome.percent = clampBpmPercent(value);
+    const clamped = clampBpmPercent(value);
+    if (wasValueClamped(value, clamped, 0)) flashClamped(percent);
+    state.metronome.percent = clamped;
     percent.value = state.metronome.percent;
     percentRange.value = state.metronome.percent;
     updateHeroBpm();
+  }
+  function setTimeSig(value) {
+    const clamped = clampPositiveInt(value, DEFAULT_STATE.metronome.timeSigNum);
+    if (wasValueClamped(value, clamped, 0)) flashClamped(timeSig);
+    state.metronome.timeSigNum = clamped;
+    timeSig.value = state.metronome.timeSigNum;
+    state.metronome.accentPattern = resizeAccentPattern(state.metronome.accentPattern, state.metronome.timeSigNum);
+    renderBeatDots();
   }
 
   bpm.addEventListener('change', () => { setBpm(bpm.value); persistState(); });
   bpmRange.addEventListener('input', () => { setBpm(bpmRange.value); persistState(); });
   percent.addEventListener('change', () => { setPercent(percent.value); persistState(); });
   percentRange.addEventListener('input', () => { setPercent(percentRange.value); persistState(); });
+  timeSig.addEventListener('change', () => { setTimeSig(timeSig.value); persistState(); });
 
   const stepperFields = {
     metronomeBpm: { input: bpm, set: setBpm },
     metronomePercent: { input: percent, set: setPercent },
+    metronomeTimeSig: { input: timeSig, set: setTimeSig },
   };
 
   document.getElementById('panel-metronome').querySelectorAll('.step-btn').forEach((btn) => {
@@ -1176,6 +1288,7 @@ function switchTab(tabName) {
   document.getElementById('panel-practice').hidden = tabName !== 'practice';
   document.getElementById('rampReadout').hidden = tabName !== 'ramp';
   document.getElementById('practiceReadout').hidden = tabName !== 'practice';
+  renderBeatDots();
   updateHeroBpm();
 }
 
@@ -1190,27 +1303,44 @@ function bindRampTab() {
   const stopBpmRange = document.getElementById('rampStopBpmRange');
   const scaleMode = document.getElementById('rampScaleMode');
   const scaleAmount = document.getElementById('rampScaleAmount');
+  const timeSig = document.getElementById('rampTimeSig');
   const stepBars = document.getElementById('rampStepBars');
 
   function setStartBpm(value) {
-    state.ramp.startBpm = clampBpm(value);
+    const clamped = clampBpm(value);
+    if (wasValueClamped(value, clamped, 0)) flashClamped(startBpm);
+    state.ramp.startBpm = clamped;
     startBpm.value = state.ramp.startBpm;
     startBpmRange.value = state.ramp.startBpm;
     updateHeroBpm();
   }
   function setStopBpm(value) {
-    state.ramp.stopBpm = clampBpm(value);
+    const clamped = clampBpm(value);
+    if (wasValueClamped(value, clamped, 0)) flashClamped(stopBpm);
+    state.ramp.stopBpm = clamped;
     stopBpm.value = state.ramp.stopBpm;
     stopBpmRange.value = state.ramp.stopBpm;
   }
   function setScaleAmount(value) {
     const n = Number(value);
-    state.ramp.scaleAmount = Number.isFinite(n) && n > 0 ? Math.round(n * 10) / 10 : DEFAULT_STATE.ramp.scaleAmount;
+    const clamped = Number.isFinite(n) && n > 0 ? Math.round(n * 10) / 10 : DEFAULT_STATE.ramp.scaleAmount;
+    if (wasValueClamped(value, clamped, 1)) flashClamped(scaleAmount);
+    state.ramp.scaleAmount = clamped;
     scaleAmount.value = state.ramp.scaleAmount;
   }
   function setStepBars(value) {
-    state.ramp.stepBars = clampPositiveInt(value, DEFAULT_STATE.ramp.stepBars);
+    const clamped = clampPositiveInt(value, DEFAULT_STATE.ramp.stepBars);
+    if (wasValueClamped(value, clamped, 0)) flashClamped(stepBars);
+    state.ramp.stepBars = clamped;
     stepBars.value = state.ramp.stepBars;
+  }
+  function setTimeSig(value) {
+    const clamped = clampPositiveInt(value, DEFAULT_STATE.ramp.timeSigNum);
+    if (wasValueClamped(value, clamped, 0)) flashClamped(timeSig);
+    state.ramp.timeSigNum = clamped;
+    timeSig.value = state.ramp.timeSigNum;
+    state.ramp.accentPattern = resizeAccentPattern(state.ramp.accentPattern, state.ramp.timeSigNum);
+    renderBeatDots();
   }
 
   startBpm.addEventListener('change', () => { setStartBpm(startBpm.value); persistState(); });
@@ -1219,12 +1349,14 @@ function bindRampTab() {
   stopBpmRange.addEventListener('input', () => { setStopBpm(stopBpmRange.value); persistState(); });
   scaleMode.addEventListener('change', () => { state.ramp.scaleMode = scaleMode.value; persistState(); });
   scaleAmount.addEventListener('change', () => { setScaleAmount(scaleAmount.value); persistState(); });
+  timeSig.addEventListener('change', () => { setTimeSig(timeSig.value); persistState(); });
   stepBars.addEventListener('change', () => { setStepBars(stepBars.value); persistState(); });
 
   const stepperFields = {
     rampStartBpm: { input: startBpm, set: setStartBpm },
     rampStopBpm: { input: stopBpm, set: setStopBpm },
     rampScaleAmount: { input: scaleAmount, set: setScaleAmount },
+    rampTimeSig: { input: timeSig, set: setTimeSig },
     rampStepBars: { input: stepBars, set: setStepBars },
   };
 
@@ -1245,27 +1377,44 @@ function bindPracticeTab() {
   const baseBpmRange = document.getElementById('practiceBaseBpmRange');
   const deltaPercent = document.getElementById('practiceDeltaPercent');
   const deltaPercentRange = document.getElementById('practiceDeltaPercentRange');
-  const beatsPerPhase = document.getElementById('practiceBeatsPerPhase');
+  const timeSig = document.getElementById('practiceTimeSig');
+  const barsPerPhase = document.getElementById('practiceBarsPerPhase');
   const breakBeats = document.getElementById('practiceBreakBeats');
 
   function setBaseBpm(value) {
-    state.practice.baseBpm = clampBpm(value);
+    const clamped = clampBpm(value);
+    if (wasValueClamped(value, clamped, 0)) flashClamped(baseBpm);
+    state.practice.baseBpm = clamped;
     baseBpm.value = state.practice.baseBpm;
     baseBpmRange.value = state.practice.baseBpm;
     updateHeroBpm();
   }
   function setDeltaPercent(value) {
     const n = Math.round(Number(value));
-    state.practice.deltaPercent = Number.isFinite(n) ? Math.min(90, Math.max(10, n)) : DEFAULT_STATE.practice.deltaPercent;
+    const clamped = Number.isFinite(n) ? Math.min(90, Math.max(10, n)) : DEFAULT_STATE.practice.deltaPercent;
+    if (wasValueClamped(value, clamped, 0)) flashClamped(deltaPercent);
+    state.practice.deltaPercent = clamped;
     deltaPercent.value = state.practice.deltaPercent;
     deltaPercentRange.value = state.practice.deltaPercent;
   }
-  function setBeatsPerPhase(value) {
-    state.practice.beatsPerPhase = clampPositiveInt(value, DEFAULT_STATE.practice.beatsPerPhase);
-    beatsPerPhase.value = state.practice.beatsPerPhase;
+  function setTimeSig(value) {
+    const clamped = clampPositiveInt(value, DEFAULT_STATE.practice.timeSigNum);
+    if (wasValueClamped(value, clamped, 0)) flashClamped(timeSig);
+    state.practice.timeSigNum = clamped;
+    timeSig.value = state.practice.timeSigNum;
+    state.practice.accentPattern = resizeAccentPattern(state.practice.accentPattern, state.practice.timeSigNum);
+    if (!isPlaying) renderBeatDots();
+  }
+  function setBarsPerPhase(value) {
+    const clamped = clampPositiveInt(value, DEFAULT_STATE.practice.barsPerPhase);
+    if (wasValueClamped(value, clamped, 0)) flashClamped(barsPerPhase);
+    state.practice.barsPerPhase = clamped;
+    barsPerPhase.value = state.practice.barsPerPhase;
   }
   function setBreakBeats(value) {
-    state.practice.breakBeats = clampPositiveInt(value, DEFAULT_STATE.practice.breakBeats);
+    const clamped = clampPositiveInt(value, DEFAULT_STATE.practice.breakBeats);
+    if (wasValueClamped(value, clamped, 0)) flashClamped(breakBeats);
+    state.practice.breakBeats = clamped;
     breakBeats.value = state.practice.breakBeats;
   }
 
@@ -1273,13 +1422,15 @@ function bindPracticeTab() {
   baseBpmRange.addEventListener('input', () => { setBaseBpm(baseBpmRange.value); persistState(); });
   deltaPercent.addEventListener('change', () => { setDeltaPercent(deltaPercent.value); persistState(); });
   deltaPercentRange.addEventListener('input', () => { setDeltaPercent(deltaPercentRange.value); persistState(); });
-  beatsPerPhase.addEventListener('change', () => { setBeatsPerPhase(beatsPerPhase.value); persistState(); });
+  timeSig.addEventListener('change', () => { setTimeSig(timeSig.value); persistState(); });
+  barsPerPhase.addEventListener('change', () => { setBarsPerPhase(barsPerPhase.value); persistState(); });
   breakBeats.addEventListener('change', () => { setBreakBeats(breakBeats.value); persistState(); });
 
   const stepperFields = {
     practiceBaseBpm: { input: baseBpm, set: setBaseBpm },
     practiceDeltaPercent: { input: deltaPercent, set: setDeltaPercent },
-    practiceBeatsPerPhase: { input: beatsPerPhase, set: setBeatsPerPhase },
+    practiceTimeSig: { input: timeSig, set: setTimeSig },
+    practiceBarsPerPhase: { input: barsPerPhase, set: setBarsPerPhase },
     practiceBreakBeats: { input: breakBeats, set: setBreakBeats },
   };
 
@@ -1296,8 +1447,6 @@ function bindPracticeTab() {
 bindPracticeTab();
 
 refreshAllInputsFromState();
-state.topBar.accentPattern = resizeAccentPattern(state.topBar.accentPattern, state.topBar.timeSigNum);
-renderBeatDots();
 updatePracticeReadout();
 </script>
 </body>

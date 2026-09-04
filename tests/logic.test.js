@@ -198,6 +198,29 @@ test('clampPositiveInt rounds and passes through positive input', () => {
   assert.equal(clampPositiveInt(7, 4), 7);
 });
 
+test('wasValueClamped is false when the rounded raw value matches the clamped result', () => {
+  const { wasValueClamped } = loadLogic(['wasValueClamped']);
+  assert.equal(wasValueClamped(120, 120, 0), false);
+  assert.equal(wasValueClamped(120.4, 120, 0), false); // plain rounding, not a boundary clamp
+});
+
+test('wasValueClamped is true when the raw value was out of range', () => {
+  const { wasValueClamped } = loadLogic(['wasValueClamped']);
+  assert.equal(wasValueClamped(999, 400, 0), true);
+  assert.equal(wasValueClamped(5, 20, 0), true);
+});
+
+test('wasValueClamped is true for non-numeric input regardless of the fallback', () => {
+  const { wasValueClamped } = loadLogic(['wasValueClamped']);
+  assert.equal(wasValueClamped('abc', 120, 0), true);
+});
+
+test('wasValueClamped respects the decimals argument', () => {
+  const { wasValueClamped } = loadLogic(['wasValueClamped']);
+  assert.equal(wasValueClamped(2.3, 2.3, 1), false);
+  assert.equal(wasValueClamped(-1, 0.1, 1), true);
+});
+
 test('resizeAccentPattern preserves existing values and pads with false when growing', () => {
   const { resizeAccentPattern } = loadLogic(['resizeAccentPattern']);
   assert.deepEqual(resizeAccentPattern([true, false, false, false], 6), [true, false, false, false, false, false]);

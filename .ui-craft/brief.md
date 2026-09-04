@@ -31,4 +31,4 @@ A user opens the bookmarked file and is tapping tempo or hitting play within sec
 
 ## 6. Learned constraints
 
-_(none yet — appended here as corrections are made; see `/remember`)_
+- **Dark-only is permanent, not a gap.** — 2026-09-04, confirmed during `/finalize`: the app is intentionally dark-only with no light theme planned. A guitarist practicing is often in a dim room glancing at the screen; a light theme isn't a goal here, it's out of scope. Future `/finalize`/`/tokens` runs should not re-flag the absence of a light mode as a finding.
