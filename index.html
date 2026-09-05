@@ -463,12 +463,13 @@ button.beat-dot:active { transform: scale(0.94); }
 }
 
 .phase-segment {
-  transition: font-size var(--duration-fast) var(--ease-standard), text-shadow var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+  display: inline-block;
+  transition: transform var(--duration-fast) var(--ease-standard), text-shadow var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
 
 .phase-segment.active {
   color: var(--accent);
-  font-size: 1.1em;
+  transform: scale(1.1);
   font-weight: var(--font-weight-semibold);
   text-shadow: 0 0 8px var(--accent);
 }
