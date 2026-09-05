@@ -31,6 +31,7 @@
   --accent-beat: var(--red-500);
   --on-accent:   var(--accent-950);
   --dot-idle:    var(--neutral-500);
+  --accent-glow: color-mix(in srgb, var(--accent) 16%, transparent);
 
   /* Surface stack — canvas/raised (--bg/--panel) are the only two levels in
      active use today. The rest are reserved: nothing in the app currently
@@ -85,7 +86,6 @@
   --tracking-widest:  0.15em;
 
   /* Spacing scale */
-  --space-3xs: 0.25rem;
   --space-2xs: 0.5rem;
   --space-xs:  0.75rem;
   --space-sm:  1rem;
@@ -148,25 +148,32 @@ h1 {
 
 #tabs {
   display: flex;
-  gap: var(--space-lg);
+  gap: var(--space-2xs);
   border-bottom: 1px solid var(--divider);
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-lg);
 }
 
 .tab-btn {
+  flex: 1;
   background: none;
   border: none;
   color: var(--text-muted);
   font: inherit;
   font-size: var(--text-base);
-  padding: var(--space-xs) 0.05rem; /* horizontal inset stays hairline-thin so the active underline tracks the label width */
+  padding: var(--space-xs) var(--space-2xs);
   margin-bottom: -1px;
   cursor: pointer;
+  text-align: center;
   border-bottom: 2px solid transparent;
-  transition: color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
+  transition: color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), background-color var(--duration-fast) var(--ease-standard), transform var(--duration-instant) var(--ease-standard);
 }
 
-.tab-btn:hover { color: var(--text); }
+.tab-btn:hover {
+  color: var(--text);
+  background: var(--panel);
+}
+
+.tab-btn:active { transform: scale(0.98); }
 
 .tab-btn.active {
   color: var(--accent);
@@ -191,12 +198,22 @@ h1 {
 }
 
 #heroBpm {
+  position: relative;
+  isolation: isolate;
   font-size: var(--text-hero);
   font-weight: var(--font-weight-bold);
   line-height: var(--leading-none);
   letter-spacing: var(--tracking-tight);
-  color: var(--text);
+  color: var(--accent);
   font-variant-numeric: tabular-nums;
+}
+
+#heroBpm::before {
+  content: "";
+  position: absolute;
+  inset: -2.5rem -3.5rem;
+  z-index: -1;
+  background: radial-gradient(ellipse 100% 100% at 50% 50%, var(--accent-glow) 0%, transparent 50%);
 }
 
 #heroBpmLabel {
@@ -340,7 +357,7 @@ button {
 
 .step-group {
   display: flex;
-  gap: var(--space-3xs);
+  gap: var(--space-2xs);
 }
 
 .step-btn {
