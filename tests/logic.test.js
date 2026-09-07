@@ -278,3 +278,23 @@ test('practicePhasePosition handles a single beat per phase and a single break b
   assert.equal(practicePhasePosition(2, 1, 1), 0);
   assert.equal(practicePhasePosition(3, 1, 1), 0);
 });
+
+test('buildQuickSelectValues returns the presets unchanged when the current value already matches one', () => {
+  const { buildQuickSelectValues } = loadLogic(['buildQuickSelectValues']);
+  assert.deepEqual(buildQuickSelectValues([60, 80, 100, 120, 140], 100), [60, 80, 100, 120, 140]);
+});
+
+test('buildQuickSelectValues inserts the current value at its sorted position when absent', () => {
+  const { buildQuickSelectValues } = loadLogic(['buildQuickSelectValues']);
+  assert.deepEqual(buildQuickSelectValues([60, 80, 100, 120, 140], 137), [60, 80, 100, 120, 137, 140]);
+});
+
+test('buildQuickSelectValues inserts a current value below every preset at the front', () => {
+  const { buildQuickSelectValues } = loadLogic(['buildQuickSelectValues']);
+  assert.deepEqual(buildQuickSelectValues([60, 80, 100], 20), [20, 60, 80, 100]);
+});
+
+test('buildQuickSelectValues appends a current value above every preset at the end', () => {
+  const { buildQuickSelectValues } = loadLogic(['buildQuickSelectValues']);
+  assert.deepEqual(buildQuickSelectValues([60, 80, 100], 400), [60, 80, 100, 400]);
+});

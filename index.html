@@ -834,6 +834,11 @@ function practicePhasePosition(sequenceIndex, beatsPerPhase, breakBeats) {
   if (sequenceIndex < beatsPerPhase + breakBeats + beatsPerPhase) return sequenceIndex - (beatsPerPhase + breakBeats);
   return sequenceIndex - (beatsPerPhase + breakBeats + beatsPerPhase);
 }
+
+function buildQuickSelectValues(presets, currentValue) {
+  const values = presets.includes(currentValue) ? presets.slice() : presets.concat([currentValue]);
+  return values.sort((a, b) => a - b);
+}
 // LOGIC-END
 </script>
 <script>
