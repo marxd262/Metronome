@@ -33,9 +33,11 @@
   --dot-idle:    var(--neutral-500);
   --accent-glow: color-mix(in srgb, var(--accent) 16%, transparent);
 
-  /* Surface stack — canvas/raised (--bg/--panel) are the only two levels in
-     active use today. The rest are reserved: nothing in the app currently
-     opens a modal/sheet, has an inset/code area, or shows an inverted block. */
+  /* Surface stack — canvas/raised/overlay (--bg/--panel/--overlay). The
+     quick-select popup is the app's one overlay-level surface, one step
+     lighter than --panel so it reads as floating above the panels behind
+     it. --sunken/--inverse remain reserved: nothing shows an inset/code
+     area or an inverted block. */
   --overlay: var(--neutral-800);
   --sunken:  var(--neutral-975);
   --inverse: var(--neutral-100);
@@ -44,17 +46,18 @@
   --radius-lg: 999px;
   --radius-round: 50%;
 
-  /* Shadows — reserved. Nothing in the app floats or overlaps yet (no
-     modals/dropdowns/tooltips), so these are unused today. Calibrated with
+  /* Shadows — --shadow-md floats the quick-select popup above the panel
+     behind it. --shadow-sm/--shadow-lg remain reserved for the day another
+     floating element needs a lighter/heavier depth cue. Calibrated with
      higher alpha than a typical light-mode scale, since a shadow needs more
      contrast punch to read against a near-black canvas. */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.25);
   --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.4), 0 4px 8px rgba(0, 0, 0, 0.3);
 
-  /* Z-index — reserved. No stacking contexts exist yet (native <select>
-     handles its own popup layer); add finer steps only when a real
-     dropdown/modal/toast gets built. */
+  /* Z-index — --z-overlay lifts the quick-select popup above page content.
+     --z-base/--z-raised remain reserved for the day ordinary in-flow
+     content needs explicit stacking. */
   --z-base:    0;
   --z-raised:  1;
   --z-overlay: 10;
@@ -95,6 +98,11 @@
   --space-xl:  2rem;
   --space-2xl: 2.5rem;
   --space-3xl: 3rem;
+
+  /* Component sizing — dimensions for one specific control, not gaps/margins,
+     so deliberately outside the spacing scale above rather than forced onto it. */
+  --quick-select-popup-max-height: 12.5rem;
+  --quick-select-popup-min-width: 4.5rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -192,6 +200,17 @@ h1 {
 }
 
 .panel[hidden] { display: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .panel:not([hidden]), .readout:not([hidden]) {
+    animation: panel-fade-in var(--duration-fast) var(--ease-standard) both;
+  }
+}
+
+@keyframes panel-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
 
 #heroZone {
   text-align: center;
@@ -433,15 +452,15 @@ button {
 
 .quick-select-popup {
   position: fixed;
-  z-index: 20;
-  max-height: 12.5rem;
+  z-index: var(--z-overlay);
+  max-height: var(--quick-select-popup-max-height);
   overflow-y: auto;
-  background: var(--panel);
+  background: var(--overlay);
   border: 1px solid var(--divider);
   border-radius: var(--radius);
   box-shadow: var(--shadow-md);
   padding: var(--space-2xs) 0;
-  min-width: 4.5rem;
+  min-width: var(--quick-select-popup-min-width);
 }
 
 .quick-select-option {
