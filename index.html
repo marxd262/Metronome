@@ -1591,6 +1591,12 @@ function bindRampTab() {
   timeSig.addEventListener('change', () => { setTimeSig(timeSig.value); persistState(); });
   stepBars.addEventListener('change', () => { setStepBars(stepBars.value); persistState(); });
 
+  attachQuickSelect(startBpm, QUICK_SELECT_PRESETS.bpm, (v) => { setStartBpm(v); persistState(); });
+  attachQuickSelect(stopBpm, QUICK_SELECT_PRESETS.bpm, (v) => { setStopBpm(v); persistState(); });
+  attachQuickSelect(scaleAmount, QUICK_SELECT_PRESETS.scaleAmount, (v) => { setScaleAmount(v); persistState(); });
+  attachQuickSelect(timeSig, QUICK_SELECT_PRESETS.timeSig, (v) => { setTimeSig(v); persistState(); });
+  attachQuickSelect(stepBars, QUICK_SELECT_PRESETS.bars, (v) => { setStepBars(v); persistState(); });
+
   const stepperFields = {
     rampStartBpm: { input: startBpm, set: setStartBpm },
     rampStopBpm: { input: stopBpm, set: setStopBpm },
