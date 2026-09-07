@@ -1671,6 +1671,12 @@ function bindPracticeTab() {
   barsPerPhase.addEventListener('change', () => { setBarsPerPhase(barsPerPhase.value); persistState(); });
   breakBeats.addEventListener('change', () => { setBreakBeats(breakBeats.value); persistState(); });
 
+  attachQuickSelect(baseBpm, QUICK_SELECT_PRESETS.bpm, (v) => { setBaseBpm(v); persistState(); });
+  attachQuickSelect(deltaPercent, QUICK_SELECT_PRESETS.deltaPercent, (v) => { setDeltaPercent(v); persistState(); });
+  attachQuickSelect(timeSig, QUICK_SELECT_PRESETS.timeSig, (v) => { setTimeSig(v); persistState(); });
+  attachQuickSelect(barsPerPhase, QUICK_SELECT_PRESETS.bars, (v) => { setBarsPerPhase(v); persistState(); });
+  attachQuickSelect(breakBeats, QUICK_SELECT_PRESETS.breakBeats, (v) => { setBreakBeats(v); persistState(); });
+
   const stepperFields = {
     practiceBaseBpm: { input: baseBpm, set: setBaseBpm },
     practiceDeltaPercent: { input: deltaPercent, set: setDeltaPercent },
