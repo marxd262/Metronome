@@ -397,6 +397,71 @@ button {
   transform: scale(0.94);
 }
 
+/* Deliberately its own class, not .step-btn — see Global Constraints:
+   bind*Tab()'s querySelectorAll('.step-btn') delegation keys off
+   data-step-target, which this button doesn't have. */
+.quick-select-toggle {
+  flex: 0 0 auto;
+  width: 1.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel);
+  color: var(--text-muted);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: var(--text-xs);
+  transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard), transform var(--duration-instant) var(--ease-standard);
+}
+
+.quick-select-toggle:hover {
+  background: var(--neutral-850);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.quick-select-toggle:active {
+  transform: scale(0.94);
+}
+
+.quick-select-toggle[aria-expanded="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.quick-select-popup {
+  position: fixed;
+  z-index: 20;
+  max-height: 12.5rem;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-2xs) 0;
+  min-width: 4.5rem;
+}
+
+.quick-select-option {
+  padding: var(--space-2xs) var(--space-sm);
+  font-size: var(--text-base);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.quick-select-option:hover {
+  background: var(--neutral-850);
+  color: var(--text);
+}
+
+.quick-select-option.highlighted {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
 #controls {
   display: flex;
   flex-direction: column;
@@ -1222,6 +1287,140 @@ document.addEventListener('click', (e) => {
   if (btn && e.detail !== 0) btn.blur();
 });
 
+const QUICK_SELECT_PRESETS = {
+  bpm: [40, 60, 80, 100, 120, 140, 160, 180, 200],
+  percent: [50, 70, 85, 100, 115, 130],
+  deltaPercent: [20, 35, 50, 65, 80],
+  scaleAmount: [1, 2, 3, 5, 10],
+  timeSig: [2, 3, 4, 5, 6, 8],
+  bars: [1, 2, 4, 8],
+  breakBeats: [2, 4, 8, 16],
+};
+
+let quickSelectIdCounter = 0;
+let openQuickSelectPopup = null;
+
+function closeOpenQuickSelectPopup() {
+  if (!openQuickSelectPopup) return;
+  const { popup, toggle } = openQuickSelectPopup;
+  popup.remove();
+  toggle.setAttribute('aria-expanded', 'false');
+  openQuickSelectPopup = null;
+}
+
+document.addEventListener('scroll', (e) => {
+  // Deviation from brief: the popup's own scrollIntoView() (in setHighlight,
+  // called from openPopup) fires an async 'scroll' event on the popup itself
+  // that reaches this capturing listener after openQuickSelectPopup is
+  // already assigned, immediately closing the popup that was just opened.
+  // Excluding scrolls that originate inside the popup — mirroring the
+  // popup.contains(e.target) check the click listener below already uses —
+  // fixes this without changing the "close on outside scroll" behavior.
+  if (!openQuickSelectPopup) return;
+  if (openQuickSelectPopup.popup.contains(e.target)) return;
+  closeOpenQuickSelectPopup();
+}, true);
+window.addEventListener('resize', closeOpenQuickSelectPopup);
+document.addEventListener('click', (e) => {
+  if (!openQuickSelectPopup) return;
+  const { popup, toggle } = openQuickSelectPopup;
+  if (e.target === toggle || popup.contains(e.target)) return;
+  closeOpenQuickSelectPopup();
+});
+
+function attachQuickSelect(inputEl, presets, onSelect) {
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  // Not `.step-btn` — see the CSS comment above `.quick-select-toggle`.
+  toggle.className = 'quick-select-toggle';
+  toggle.setAttribute('aria-haspopup', 'listbox');
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.setAttribute('aria-label', 'Quick-select value');
+  toggle.textContent = '▾';
+  inputEl.insertAdjacentElement('afterend', toggle);
+
+  function openPopup() {
+    closeOpenQuickSelectPopup();
+    const currentValue = Number(inputEl.value);
+    const values = buildQuickSelectValues(presets, currentValue);
+
+    const popup = document.createElement('div');
+    popup.className = 'quick-select-popup';
+    popup.setAttribute('role', 'listbox');
+    popup.tabIndex = -1;
+
+    let highlightedIndex = values.indexOf(currentValue);
+    if (highlightedIndex === -1) highlightedIndex = 0;
+
+    const options = values.map((value) => {
+      const option = document.createElement('div');
+      option.id = `quick-select-option-${quickSelectIdCounter++}`;
+      option.className = 'quick-select-option';
+      option.setAttribute('role', 'option');
+      option.textContent = String(value);
+      option.addEventListener('click', () => {
+        onSelect(value);
+        closeOpenQuickSelectPopup();
+        inputEl.focus();
+      });
+      popup.appendChild(option);
+      return option;
+    });
+
+    function setHighlight(index) {
+      options.forEach((opt, i) => {
+        opt.classList.toggle('highlighted', i === index);
+        opt.setAttribute('aria-selected', i === index ? 'true' : 'false');
+      });
+      highlightedIndex = index;
+      popup.setAttribute('aria-activedescendant', options[index].id);
+      options[index].scrollIntoView({ block: 'center' });
+    }
+
+    popup.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlight(Math.min(highlightedIndex + 1, options.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlight(Math.max(highlightedIndex - 1, 0));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        options[highlightedIndex].click();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeOpenQuickSelectPopup();
+        toggle.focus();
+      }
+    });
+
+    document.body.appendChild(popup);
+    const rect = toggle.getBoundingClientRect();
+    popup.style.top = rect.bottom + 4 + 'px';
+    popup.style.left = rect.left + 'px';
+
+    setHighlight(highlightedIndex);
+    toggle.setAttribute('aria-expanded', 'true');
+    openQuickSelectPopup = { popup, toggle };
+    popup.focus();
+  }
+
+  toggle.addEventListener('click', () => {
+    if (openQuickSelectPopup && openQuickSelectPopup.toggle === toggle) {
+      closeOpenQuickSelectPopup();
+    } else {
+      openPopup();
+    }
+  });
+
+  toggle.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' && !openQuickSelectPopup) {
+      e.preventDefault();
+      openPopup();
+    }
+  });
+}
+
 function bindMetronomeTab() {
   const bpm = document.getElementById('metronomeBpm');
   const bpmRange = document.getElementById('metronomeBpmRange');
@@ -1259,6 +1458,10 @@ function bindMetronomeTab() {
   percent.addEventListener('change', () => { setPercent(percent.value); persistState(); });
   percentRange.addEventListener('input', () => { setPercent(percentRange.value); persistState(); });
   timeSig.addEventListener('change', () => { setTimeSig(timeSig.value); persistState(); });
+
+  attachQuickSelect(bpm, QUICK_SELECT_PRESETS.bpm, (v) => { setBpm(v); persistState(); });
+  attachQuickSelect(percent, QUICK_SELECT_PRESETS.percent, (v) => { setPercent(v); persistState(); });
+  attachQuickSelect(timeSig, QUICK_SELECT_PRESETS.timeSig, (v) => { setTimeSig(v); persistState(); });
 
   const stepperFields = {
     metronomeBpm: { input: bpm, set: setBpm },
