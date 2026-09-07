@@ -1064,6 +1064,14 @@ function renderPracticeProgressDots(count) {
     dot.className = 'beat-dot';
     container.appendChild(dot);
   }
+  // Force a synchronous reflow so the freshly-created dots' resting style is
+  // committed before scheduleBeat's immediately-following flashBeatIndicator()
+  // call adds .pulse. Without this, a dot created and pulsed in the same tick
+  // has no prior committed style to transition from, so no transition starts,
+  // transitionend never fires, and the pulse class gets stuck forever on that
+  // dot — which always happens to be index 0, the first beat of every segment
+  // this function is called for.
+  container.offsetHeight;
 }
 
 function toggleAccent(index) {
