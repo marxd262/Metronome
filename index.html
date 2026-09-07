@@ -65,6 +65,7 @@
   /* Motion */
   --duration-instant: 0.05s;
   --duration-fast: 0.15s;
+  --duration-moderate: 0.3s;
   --ease-standard: ease;
 
   /* Type weight */
@@ -203,7 +204,7 @@ h1 {
 
 @media (prefers-reduced-motion: no-preference) {
   .panel:not([hidden]), .readout:not([hidden]) {
-    animation: panel-fade-in var(--duration-fast) var(--ease-standard) both;
+    animation: panel-fade-in var(--duration-moderate) var(--ease-standard) both;
   }
 }
 
