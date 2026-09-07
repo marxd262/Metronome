@@ -110,6 +110,20 @@ code path that can render into `#beatIndicator` needs to know which mode
 it's in — `bindTopBar`'s time-signature handler had to be fixed once
 already for calling the wrong renderer while Practice was running.
 
+### Quick-select value dropdown
+
+Every numeric field has a chevron button (`attachQuickSelect`, called once
+per field from each `bind*Tab()`) that opens a small popup of preset values
+(`QUICK_SELECT_PRESETS`, one preset list per field kind) merged with the
+field's current value at its sorted position (`buildQuickSelectValues`, a
+LOGIC function). At most one popup can be open at a time — a single
+module-level `openQuickSelectPopup` reference, closed via document-level
+click/scroll/resize listeners, is what enforces that, not per-popup state.
+The toggle deliberately isn't given the `.step-btn` class: each `bind*Tab()`
+delegates `±`/`±5` stepper-button clicks with
+`querySelectorAll('.step-btn')`, and reusing that class on the chevron would
+fold it into the same click handling.
+
 ## Project history and conventions
 
 `docs/superpowers/specs/` and `docs/superpowers/plans/` hold, in
