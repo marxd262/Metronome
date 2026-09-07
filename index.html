@@ -1276,6 +1276,7 @@ document.getElementById('startStop').addEventListener('click', () => {
 
 document.addEventListener('keydown', (e) => {
   if (e.code !== 'Space') return;
+  if (openQuickSelectPopup) return;
   const tag = document.activeElement && document.activeElement.tagName;
   if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
   e.preventDefault();
@@ -1335,7 +1336,8 @@ function attachQuickSelect(inputEl, presets, onSelect) {
   toggle.className = 'quick-select-toggle';
   toggle.setAttribute('aria-haspopup', 'listbox');
   toggle.setAttribute('aria-expanded', 'false');
-  toggle.setAttribute('aria-label', 'Quick-select value');
+  const labelEl = document.querySelector(`label[for="${inputEl.id}"]`);
+  toggle.setAttribute('aria-label', `Quick-select ${labelEl ? labelEl.textContent.trim() : 'value'}`);
   toggle.textContent = '▾';
   inputEl.insertAdjacentElement('afterend', toggle);
 
@@ -1396,13 +1398,27 @@ function attachQuickSelect(inputEl, presets, onSelect) {
 
     document.body.appendChild(popup);
     const rect = toggle.getBoundingClientRect();
-    popup.style.top = rect.bottom + 4 + 'px';
-    popup.style.left = rect.left + 'px';
+    const popupHeight = popup.offsetHeight;
+    const popupWidth = popup.offsetWidth;
+
+    let top = rect.bottom + 4;
+    if (top + popupHeight > window.innerHeight) {
+      // Not enough room below the toggle — flip to render above it instead.
+      top = rect.top - popupHeight - 4;
+    }
+    top = Math.max(top, 8);
+    let left = rect.left;
+    if (left + popupWidth > window.innerWidth - 8) {
+      left = window.innerWidth - popupWidth - 8;
+    }
+    left = Math.max(left, 8);
+    popup.style.top = top + 'px';
+    popup.style.left = left + 'px';
 
     setHighlight(highlightedIndex);
     toggle.setAttribute('aria-expanded', 'true');
     openQuickSelectPopup = { popup, toggle };
-    popup.focus();
+    popup.focus({ preventScroll: true });
   }
 
   toggle.addEventListener('click', () => {
@@ -1414,6 +1430,16 @@ function attachQuickSelect(inputEl, presets, onSelect) {
   });
 
   toggle.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+      // Stop this from reaching the document-level global Space handler,
+      // which would otherwise toggle playback (the toggle button's tagName,
+      // 'BUTTON', isn't in that handler's ignore list). Space on an unopened
+      // toggle should open the popup, mirroring ArrowDown below.
+      e.preventDefault();
+      e.stopPropagation();
+      if (!openQuickSelectPopup) openPopup();
+      return;
+    }
     if (e.key === 'ArrowDown' && !openQuickSelectPopup) {
       e.preventDefault();
       openPopup();
