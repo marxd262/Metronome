@@ -134,7 +134,7 @@ test('every theme pulses to a different colour than its idle dot', () => {
 test('no theme overrides the locked .beat-dot transition', () => {
   for (const rule of rulesWithSelector('.beat-dot')) {
     if (!rule.selector.includes('[data-theme')) continue;
-    assert.ok(!/(?:^|[;{\s])transition\s*:/.test(rule.body),
+    assert.ok(!/(?:^|[;{\s])transition(?:-(?:duration|property|delay|timing-function))?\s*:/.test(rule.body),
       `"${rule.selector}" declares transition on .beat-dot; the components layer owns it`);
   }
 });
