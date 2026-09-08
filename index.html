@@ -1487,6 +1487,387 @@ button.beat-dot:active { transform: scale(0.94); }
   color: var(--on-accent);
 }
 
+:root[data-theme="pulse-field"] {
+  --bg:                #08080b;
+  --panel:             #17171e;
+  --overlay:           #1f1f28;
+  --divider:           rgba(255, 255, 255, 0.07);
+  --text:              #f2f3f7;
+  --text-muted:        #9096a0;
+  --text-dim:          #4e4e5c;
+  --accent:            #ffa726;
+  --accent-beat:       #ff5a5a;
+  --on-accent:         #180f00;
+  --accent-glow:       color-mix(in srgb, var(--accent) 30%, transparent);
+  --dot-idle:          #383846;
+  --dot-pulse-bg:      var(--accent);
+  --dot-accent-bg:     var(--accent-beat);
+  --dot-strike:        30ms;
+  --dot-decay:         520ms;
+  --dot-ease:          cubic-bezier(0.1, 0.82, 0.25, 1);
+  --content-max-width: 520px;
+  --radius:            10px;
+  --radius-panel:      20px;
+  --font-ui:      system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono:    ui-monospace, "Cascadia Mono", "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace;
+  --font-display: var(--font-ui);
+
+  /* theme-private */
+  --ink:          #f2f3f7;
+  --accent-bloom: color-mix(in srgb, var(--accent) 16%, transparent);
+  --beat-bloom:   color-mix(in srgb, var(--accent-beat) 20%, transparent);
+  --shadow-panel: 0 20px 44px -20px rgba(0, 0, 0, 0.95);
+
+  /* .step-btn:hover / .quick-select-toggle:hover / .quick-select-option:hover
+     (@layer components) read the shared --neutral-850 primitive directly for
+     their hover surface — see Global Constraints. This theme needs two
+     different hover tints (the step/tap/quick-select-toggle trio at 0.09
+     alpha vs. the popup option at 0.07 alpha), so only the popup option's
+     hover is driven through this token; the trio gets its own explicit
+     theme rule below instead (not an edit to the locked component rule). */
+  --neutral-850: rgba(255, 255, 255, 0.07);
+}
+
+:root[data-theme="pulse-field"] body {
+  background:
+    radial-gradient(ellipse 90% 55% at 50% 0%, #14141c 0%, transparent 65%),
+    var(--bg);
+}
+
+:root[data-theme="pulse-field"] h1 {
+  letter-spacing: var(--tracking-widest);
+  text-indent: var(--tracking-widest);
+}
+
+:root[data-theme="pulse-field"] #topbar {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  margin-bottom: var(--space-sm);
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--divider);
+  border-radius: 16px;
+  transition: opacity var(--duration-moderate) var(--ease-standard);
+}
+
+:root[data-theme="pulse-field"] #volumeValue {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+:root[data-theme="pulse-field"] #tabs {
+  gap: 4px;
+  padding: 5px;
+  margin-bottom: var(--space-xl);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-lg);
+  transition: opacity var(--duration-moderate) var(--ease-standard);
+}
+
+/* Shared .tab-btn uses `font: inherit`, which resets font-weight with no
+   later declaration to restore it — must restate here or inactive tabs
+   render at inherited (normal) weight instead of the source's semibold. */
+:root[data-theme="pulse-field"] .tab-btn {
+  border: none;
+  border-radius: var(--radius-lg);
+  font-size: 0.9375rem;
+  font-weight: var(--font-weight-semibold);
+  padding: 0.55rem 0.5rem;
+}
+
+:root[data-theme="pulse-field"] .tab-btn:hover { background: rgba(255, 255, 255, 0.05); }
+:root[data-theme="pulse-field"] .tab-btn:active { transform: scale(0.97); }
+
+:root[data-theme="pulse-field"] .tab-btn.active {
+  background: var(--ink);
+  color: var(--bg);
+  font-weight: var(--font-weight-bold);
+  box-shadow: 0 3px 10px -2px rgba(0, 0, 0, 0.7);
+}
+
+/* Structural: the prototype puts position/isolation on #heroZone, but here
+   #beatFlash is positioned against .hero-frame, so it belongs there instead.
+   This theme also shows the beat dots above the readout — #beatIndicator is
+   the shared skeleton's last child, so order:-1 moves it to the front of the
+   now-flex-column .hero-frame without touching markup. */
+:root[data-theme="pulse-field"] .hero-frame {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+}
+
+:root[data-theme="pulse-field"] #beatIndicator { order: -1; }
+
+/* The signature: every audible beat blooms the canvas. Capped at 100vw (kept
+   exactly as the source declares it) so a wide bloom can never introduce a
+   horizontal scrollbar on a phone. right/bottom explicitly cancelled since
+   the shared #beatFlash sets `inset: 0`, which would otherwise leave them at
+   0 and over-constrain the left/top+width+aspect-ratio positioning below. */
+:root[data-theme="pulse-field"] #beatFlash {
+  left: 50%;
+  top: 42%;
+  right: auto;
+  bottom: auto;
+  z-index: -1;
+  width: min(150%, 100vw);
+  aspect-ratio: 1;
+  border-radius: var(--radius-round);
+  transform: translate(-50%, -50%) scale(0.35);
+  background: radial-gradient(circle, var(--accent-bloom) 0%, transparent 62%);
+}
+
+:root[data-theme="pulse-field"] #beatFlash.beat { animation: pulse-field-bloom 540ms var(--dot-ease); }
+
+:root[data-theme="pulse-field"] #beatFlash.beat.beat-accent {
+  background: radial-gradient(circle, var(--beat-bloom) 0%, transparent 62%);
+  animation-duration: 680ms;
+}
+
+:root[data-theme="pulse-field"] #heroBpm {
+  font-size: clamp(4.5rem, 22vw, 6.75rem);
+  text-shadow: 0 0 40px var(--accent-glow);
+}
+
+:root[data-theme="pulse-field"] #heroBpmLabel {
+  font-weight: var(--font-weight-semibold);
+  text-indent: var(--tracking-widest);
+  color: color-mix(in srgb, var(--accent) 45%, var(--text-dim));
+  margin-top: 0.5rem;
+}
+
+:root[data-theme="pulse-field"] #beatIndicator {
+  position: relative;
+  gap: 10px;
+  margin-bottom: var(--space-lg);
+}
+
+:root[data-theme="pulse-field"] .beat-dot {
+  width: 26px;
+  height: 26px;
+}
+
+:root[data-theme="pulse-field"] .beat-dot.pulse {
+  box-shadow: 0 0 26px 2px var(--accent-glow);
+  transform: scale(1.18);
+}
+
+:root[data-theme="pulse-field"] .beat-dot.pulse.accent {
+  box-shadow: 0 0 30px 3px color-mix(in srgb, var(--accent-beat) 35%, transparent);
+  transform: scale(1.3);
+}
+
+:root[data-theme="pulse-field"] button.beat-dot:hover { background: var(--text-dim); }
+:root[data-theme="pulse-field"] button.beat-dot:active { transform: scale(0.9); }
+
+:root[data-theme="pulse-field"] #beatIndicator .beat-dot:nth-child(4n):not(:last-child) { margin-right: 12px; }
+
+:root[data-theme="pulse-field"] .readout {
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  min-height: 1.6em;
+}
+
+:root[data-theme="pulse-field"] .phase-segment {
+  padding: 3px 10px;
+  border-radius: var(--radius-lg);
+  color: var(--text-dim);
+  transition: color var(--duration-fast) var(--ease-standard),
+              background-color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+:root[data-theme="pulse-field"] .phase-segment.active {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: var(--font-weight-bold);
+  box-shadow: 0 0 22px -4px var(--accent-glow);
+}
+
+:root[data-theme="pulse-field"] .panel {
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.038) 0%, rgba(255, 255, 255, 0.012) 100%);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+  transition: opacity var(--duration-moderate) var(--ease-standard),
+              transform var(--duration-moderate) var(--ease-standard);
+}
+
+:root[data-theme="pulse-field"] .panel[hidden] { display: none; }
+
+:root[data-theme="pulse-field"] body.playing #topbar,
+:root[data-theme="pulse-field"] body.playing #tabs,
+:root[data-theme="pulse-field"] body.playing .panel { opacity: 0.6; }
+
+:root[data-theme="pulse-field"] body.playing .panel { transform: scale(0.985); }
+
+:root[data-theme="pulse-field"] body.playing #topbar:hover,
+:root[data-theme="pulse-field"] body.playing #topbar:focus-within,
+:root[data-theme="pulse-field"] body.playing #tabs:hover,
+:root[data-theme="pulse-field"] body.playing #tabs:focus-within,
+:root[data-theme="pulse-field"] body.playing .panel:hover,
+:root[data-theme="pulse-field"] body.playing .panel:focus-within {
+  opacity: 1;
+  transform: none;
+}
+
+:root[data-theme="pulse-field"] label,
+:root[data-theme="pulse-field"] .field-group {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+/* Only the Volume row's label has a nested <span> (for the "80%" readout);
+   every other label is plain text, so this stays scoped to that one row.
+   Classic deliberately has no equivalent rule and keeps "Volume 80%" inline. */
+:root[data-theme="pulse-field"] label > span {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2xs);
+}
+
+/* Shared input[type=number]/select also use `font: inherit`, dropping
+   font-weight the same way .tab-btn does. letter-spacing/text-transform are
+   restated too, not because of that shorthand, but because these fields sit
+   inside a .field-group ancestor that sets uppercase + wide tracking, which
+   they'd otherwise inherit unwanted. */
+:root[data-theme="pulse-field"] input[type="number"],
+:root[data-theme="pulse-field"] select {
+  background: rgba(0, 0, 0, 0.35);
+  padding: 0.55rem 0.6rem;
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0;
+  text-transform: none;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+:root[data-theme="pulse-field"] input[type="number"]:focus,
+:root[data-theme="pulse-field"] select:focus {
+  box-shadow: 0 0 0 3px var(--accent-bloom);
+}
+
+:root[data-theme="pulse-field"] input[type="number"].clamped {
+  box-shadow: 0 0 0 3px var(--beat-bloom);
+}
+
+:root[data-theme="pulse-field"] input[type="range"] {
+  height: 6px;
+  border-radius: var(--radius-lg);
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--divider);
+}
+
+:root[data-theme="pulse-field"] input[type="range"]::-webkit-slider-thumb {
+  width: 20px;
+  height: 20px;
+  background: var(--ink);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+}
+
+:root[data-theme="pulse-field"] input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: var(--ink);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+}
+
+:root[data-theme="pulse-field"] input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: var(--radius-lg);
+  background: rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme="pulse-field"] .stepper-row input[type="number"] { text-align: center; }
+:root[data-theme="pulse-field"] .step-group { gap: 5px; }
+
+/* Same font:inherit gap as .tab-btn/inputs above, here for .quick-select-toggle
+   specifically (.step-btn and .tapTempo already restore their own font-weight
+   in the shared rule); applied to all three for a single, easy-to-audit rule.
+   letter-spacing/text-transform reset for the same field-group-inheritance
+   reason as the inputs above. */
+:root[data-theme="pulse-field"] .step-btn,
+:root[data-theme="pulse-field"] .tapTempo,
+:root[data-theme="pulse-field"] .quick-select-toggle {
+  background: rgba(255, 255, 255, 0.05);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+:root[data-theme="pulse-field"] .step-btn { width: 2.2rem; }
+
+:root[data-theme="pulse-field"] .tapTempo {
+  padding: 0 var(--space-md);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+}
+
+:root[data-theme="pulse-field"] .quick-select-toggle { width: 1.7rem; }
+
+/* Explicit rule rather than the shared --neutral-850 hover token: this trio
+   wants a 0.09-alpha tint, distinct from the popup option's 0.07 alpha (see
+   the --neutral-850 comment in the token block above). Not an edit to the
+   locked component rule — this selector is themes-layer and wins on its own. */
+:root[data-theme="pulse-field"] .step-btn:hover,
+:root[data-theme="pulse-field"] .tapTempo:hover,
+:root[data-theme="pulse-field"] .quick-select-toggle:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+:root[data-theme="pulse-field"] .step-btn:active,
+:root[data-theme="pulse-field"] .tapTempo:active,
+:root[data-theme="pulse-field"] .quick-select-toggle:active { transform: scale(0.93); }
+
+:root[data-theme="pulse-field"] .quick-select-popup {
+  border-radius: 14px;
+  padding: 5px;
+}
+
+:root[data-theme="pulse-field"] .quick-select-option {
+  padding: 0.4rem var(--space-sm);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+}
+
+:root[data-theme="pulse-field"] #controls { margin-top: var(--space-lg); }
+
+:root[data-theme="pulse-field"] #startStop {
+  min-width: 15rem;
+  padding: 1.05rem var(--space-2xl);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  box-shadow: 0 10px 34px -10px var(--accent-glow), 0 4px 12px rgba(0, 0, 0, 0.5);
+  transition: background-color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard),
+              filter var(--duration-fast) var(--ease-standard),
+              transform var(--duration-instant) var(--ease-standard);
+}
+
+:root[data-theme="pulse-field"] #startStop:hover {
+  filter: brightness(1.07);
+  box-shadow: 0 12px 40px -10px var(--accent-glow), 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme="pulse-field"] #startStop:active { transform: scale(0.975); }
+
+:root[data-theme="pulse-field"] #startStop.is-playing {
+  background: var(--accent-beat);
+  color: #fff;
+  box-shadow: 0 10px 34px -10px var(--beat-bloom), 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
 }
 
 @keyframes pulse-engine-shell-strike {
@@ -1504,6 +1885,11 @@ button.beat-dot:active { transform: scale(0.94); }
   to   { opacity: 0; }
 }
 
+@keyframes pulse-field-bloom {
+  from { opacity: 0.9; transform: translate(-50%, -50%) scale(0.32); }
+  to   { opacity: 0;   transform: translate(-50%, -50%) scale(1); }
+}
+
 @layer motion {
 
 @media (prefers-reduced-motion: reduce) {
@@ -1517,6 +1903,10 @@ button.beat-dot:active { transform: scale(0.94); }
 
   :root[data-theme="kinetic-type"] {
     --dot-decay: 90ms;
+  }
+
+  :root[data-theme="pulse-field"] {
+    --dot-decay: 100ms;
   }
 }
 
@@ -1970,6 +2360,7 @@ const THEMES = [
   { value: 'classic',      label: 'Classic' },
   { value: 'pulse-engine', label: 'Pulse Engine' },
   { value: 'kinetic-type', label: 'Kinetic Type' },
+  { value: 'pulse-field',  label: 'Pulse Field' },
 ];
 
 function applyTheme(name) {
