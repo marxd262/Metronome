@@ -124,6 +124,75 @@ delegates `±`/`±5` stepper-button clicks with
 `querySelectorAll('.step-btn')`, and reusing that class on the chevron would
 fold it into the same click handling.
 
+### Cascade layers and the theme system
+
+`index.html` has a single `<style>` block (alongside the two `<script>`
+blocks described above), organized into four cascade layers declared
+once at the top: `@layer base, components, themes, motion;`. **Every
+rule must live inside one of these layers** — an unlayered rule outranks
+all layered rules regardless of specificity, so a stray rule added
+outside `@layer` would silently beat all five themes. `@keyframes` is
+the one exception: layers don't affect them, so they stay at top level
+and are given theme-unique names (`pulse-engine-shell-strike`,
+`kinetic-type-rule-flash`, `grid-console-cell-strike`, etc.) so two
+themes' animations can never collide.
+
+`base` holds resets, element defaults, the primitive tokens
+(`--neutral-*`, `--accent-500`, `--red-500`), and shared motion/spacing
+scales. `components` holds every component rule, written against custom
+properties rather than raw values. `themes` holds one
+`:root[data-theme="…"]` token block per theme, plus that theme's
+structural overrides (hero element order, content max-width, and, for
+Grid Console, the page's column count). `motion` holds
+`prefers-reduced-motion` token overrides and is declared last so it
+outranks every theme.
+
+Five themes exist: `classic` (today's look, the default), `pulse-engine`,
+`kinetic-type`, `pulse-field`, `grid-console`. The choice lives in
+`state.topBar.theme`, follows the same per-section merge-over-
+`DEFAULT_STATE` backward compatibility described above under "State and
+persistence," and is guarded on load by the pure LOGIC function
+`resolveTheme(saved, validThemes, fallback)`, which falls back to
+`classic` if a persisted theme name no longer exists. The theme
+`<select>` lives in `<header id="masthead">`; changing it sets
+`data-theme` on `<html>` and persists — nothing else. It deliberately
+does not stop playback, unlike `switchTab`. `tests/themes.test.js` is a
+dependency-free static analysis of `index.html` that enforces the
+contract below, plus that every theme in the roster has a matching token
+block and vice versa.
+
+Three rules of that contract are the easiest for a future change to
+break without realizing it:
+
+1. **The locked `.beat-dot` transition.** `@layer components` owns
+   `.beat-dot`'s `transition` declaration; no theme may declare
+   `transition` or any `transition-*` longhand on `.beat-dot` — a theme
+   varies timing only through `--dot-strike`, `--dot-decay`,
+   `--dot-ease`. `flashBeatIndicator` adds `.pulse` and removes it from a
+   `transitionend` listener; if adding `.pulse` doesn't change a
+   transitioned property, that event never fires and the class sticks on
+   the dot permanently. `tests/themes.test.js` enforces this, including
+   the longhand forms.
+2. **Every theme must define all 23 required tokens** — the list lives
+   in the `REQUIRED_TOKENS` array at the top of `tests/themes.test.js`
+   (read it there rather than here, so the two can't drift apart), and
+   the suite fails any theme missing one. The companion rule, checked the
+   same way: `--dot-pulse-bg` must differ from `--dot-idle`, for the
+   identical stuck-`.pulse` reason as above — if they're equal, adding
+   `.pulse` doesn't change the dot's background and `transitionend` never
+   fires.
+3. **Layer order beats specificity.** Because `themes` is declared after
+   `components`, even a low-specificity shorthand in a theme rule (say
+   `border: 1px solid X` on an input) silently overrides a *more
+   specific* shared state rule sitting in `components` — `.clamped`,
+   `:focus`, `.beat-dot.accented`, `button.beat-dot:not(.accented):hover`,
+   `.step-btn.step-5`. A theme that reaches for such a shorthand has to
+   restate those states itself. This isn't cosmetic: the clamp flash, for
+   instance, is how an out-of-range value announces itself. Relatedly,
+   the shared rules use `font: inherit`, which carries no `font-weight` —
+   a weight a theme wants has to be declared in the theme, not assumed
+   inherited.
+
 ## Project history and conventions
 
 `docs/superpowers/specs/` and `docs/superpowers/plans/` hold, in
