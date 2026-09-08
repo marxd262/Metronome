@@ -832,6 +832,14 @@ button.beat-dot:active { transform: scale(0.94); }
 }
 
 :root[data-theme="pulse-engine"] .beat-dot.accented {
+  /* This themes-layer background always outranks the components-layer
+     .beat-dot.pulse background (var(--dot-pulse-bg)) — layer order beats
+     specificity — so adding .pulse to an accented dot never changes
+     background-color here. The transitionend the components-layer JS
+     waits on (see CLAUDE.md's beat-dot pulse contract) only fires because
+     .beat-dot.pulse below also changes box-shadow and transform. Do not
+     remove those without keeping some other transitioned property
+     changing on .pulse for an accented dot, or the class sticks forever. */
   background: var(--overlay);
   box-shadow: inset 0 3px 0 var(--accent-beat), var(--bevel);
 }
@@ -1254,6 +1262,14 @@ button.beat-dot:active { transform: scale(0.94); }
 }
 
 :root[data-theme="kinetic-type"] .beat-dot.accented {
+  /* This themes-layer background always outranks the components-layer
+     .beat-dot.pulse background (var(--dot-pulse-bg)) — layer order beats
+     specificity — so adding .pulse to an accented dot never changes
+     background-color here. The transitionend the components-layer JS
+     waits on (see CLAUDE.md's beat-dot pulse contract) only fires because
+     .beat-dot.pulse below also changes box-shadow. Do not remove that
+     without keeping some other transitioned property changing on .pulse
+     for an accented dot, or the class sticks forever. */
   height: 54px;
   background: var(--dot-accent-idle);
 }
@@ -1305,7 +1321,10 @@ button.beat-dot:active { transform: scale(0.94); }
 :root[data-theme="kinetic-type"] body.playing #topbar,
 :root[data-theme="kinetic-type"] body.playing #tabs,
 :root[data-theme="kinetic-type"] body.playing .panel {
-  opacity: 0.62;
+  /* 0.87 is the lowest opacity (to 2dp) that keeps --text-muted on
+     --panel at >=4.5:1 while de-emphasized (computed, not eyeballed —
+     see final-fix-report.md). Do not lower without recomputing. */
+  opacity: 0.87;
 }
 
 :root[data-theme="kinetic-type"] body.playing #topbar:hover,
@@ -1699,9 +1718,12 @@ button.beat-dot:active { transform: scale(0.94); }
 
 :root[data-theme="pulse-field"] .panel[hidden] { display: none; }
 
+/* 0.84 is the lowest opacity (to 2dp) that keeps --text-muted on --panel
+   at >=4.5:1 while de-emphasized (computed, not eyeballed — see
+   final-fix-report.md). Do not lower without recomputing. */
 :root[data-theme="pulse-field"] body.playing #topbar,
 :root[data-theme="pulse-field"] body.playing #tabs,
-:root[data-theme="pulse-field"] body.playing .panel { opacity: 0.6; }
+:root[data-theme="pulse-field"] body.playing .panel { opacity: 0.84; }
 
 :root[data-theme="pulse-field"] body.playing .panel { transform: scale(0.985); }
 
@@ -2169,7 +2191,10 @@ button.beat-dot:active { transform: scale(0.94); }
 :root[data-theme="grid-console"] body.playing #topbar,
 :root[data-theme="grid-console"] body.playing #tabs,
 :root[data-theme="grid-console"] body.playing .panel {
-  opacity: 0.62;
+  /* 0.76 is the lowest opacity (to 2dp) that keeps --text-muted on
+     --panel at >=4.5:1 while de-emphasized (computed, not eyeballed —
+     see final-fix-report.md). Do not lower without recomputing. */
+  opacity: 0.76;
 }
 
 :root[data-theme="grid-console"] body.playing #topbar:hover,
@@ -3266,6 +3291,8 @@ function stopPlayback() {
   setTransportState(false);
   updatePracticeReadout();
   if (state.topBar.activeTab === 'practice') renderBeatDots();
+  const flash = document.getElementById('beatFlash');
+  if (flash) flash.classList.remove('beat', 'beat-accent');
 }
 
 document.getElementById('startStop').addEventListener('click', () => {
