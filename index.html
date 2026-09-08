@@ -1839,6 +1839,13 @@ button.beat-dot:active { transform: scale(0.94); }
   font-family: var(--font-mono);
 }
 
+/* Shared .quick-select-option.highlighted (@layer components) sets only
+   background/color — no font-weight — so the source's bold highlighted row
+   does not fall through and must be restated here. */
+:root[data-theme="pulse-field"] .quick-select-option.highlighted {
+  font-weight: var(--font-weight-bold);
+}
+
 :root[data-theme="pulse-field"] #controls { margin-top: var(--space-lg); }
 
 :root[data-theme="pulse-field"] #startStop {
