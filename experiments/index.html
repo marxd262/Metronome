@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Metronome — UI Experiments</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #08080a;
+  --panel: #121217;
+  --rule: #26262e;
+  --rule-faint: #1a1a1f;
+  --text: #edeef2;
+  --text-muted: #a2a7b0;
+  --text-dim: #5a5a67;
+  --accent: #ffab1f;
+  --on-accent: #1a1000;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.55;
+  max-width: 740px;
+  margin: 3rem auto;
+  padding: 0 1.25rem 4rem;
+}
+
+header { margin-bottom: 2.5rem; }
+
+h1 {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin: 0 0 1.25rem;
+}
+
+h1::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+  margin-left: 0.25rem;
+}
+
+h1 span { font-weight: 400; color: var(--text-dim); }
+
+.lede {
+  font-size: 1.0625rem;
+  letter-spacing: -0.01em;
+  color: var(--text-muted);
+  text-wrap: pretty;
+  max-width: 54ch;
+  margin: 0;
+}
+
+.lede strong { color: var(--text); font-weight: 600; }
+
+/* ── Variant list ───────────────────────────────────────── */
+.variant {
+  display: grid;
+  grid-template-columns: 3.25rem minmax(0, 1fr);
+  gap: 0 1.25rem;
+  padding: 1.75rem 0;
+  border-top: 1px solid var(--rule-faint);
+}
+
+.variant:first-of-type { border-top: 1px solid var(--rule); }
+
+.idx {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+  padding-top: 0.4rem;
+}
+
+.variant h2 { margin: 0; font-size: 1.375rem; letter-spacing: -0.025em; font-weight: 700; }
+
+.variant h2 a {
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.variant h2 a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+.variant h2 a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+.thesis {
+  margin: 0.25rem 0 0.85rem;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.variant ul { margin: 0; padding: 0; list-style: none; }
+
+.variant li {
+  position: relative;
+  padding-left: 1.1rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.variant li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.66em;
+  width: 5px;
+  height: 5px;
+  background: var(--rule);
+}
+
+.variant li + li { margin-top: 0.3rem; }
+
+.knobs {
+  margin-top: 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 0.6563rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.knobs b { color: var(--text-muted); font-weight: 600; }
+
+/* ── Shared notes ───────────────────────────────────────── */
+.shared {
+  margin-top: 2.5rem;
+  padding: 1.25rem 1.5rem;
+  background: var(--panel);
+  border: 1px solid var(--rule-faint);
+  border-radius: 10px;
+}
+
+.shared h3 {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.shared p { margin: 0 0 0.6rem; font-size: 0.875rem; color: var(--text-muted); text-wrap: pretty; }
+.shared p:last-child { margin-bottom: 0; }
+.shared code {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--text);
+  background: #1c1c23;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+footer {
+  margin-top: 2rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+footer a { color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Metronome <span>UI experiments</span></h1>
+    <p class="lede">Four takes on the same app, each pushing past the current
+    restrained UI in a different direction. Every one keeps the whole feature
+    set and the pure-logic block byte-identical to <strong>index.html</strong> —
+    only the presentation layer differs. Open any of them straight from disk.</p>
+  </header>
+
+  <main>
+    <article class="variant">
+      <div class="idx">01</div>
+      <div>
+        <h2><a href="01-pulse-engine.html">Pulse Engine</a></h2>
+        <p class="thesis">A physical unit sitting on the desk — machined chassis,
+        an inset LCD, and a transport button you can hit without looking.</p>
+        <ul>
+          <li>The tempo readout and the beat strip are housed in one recessed
+          panel, so the two things you glance at are literally one object.</li>
+          <li>Beat dots become lit bars in a sunken housing; accents get a red cap.</li>
+          <li>The unit's whole bezel flashes on every audible beat, harder on accents.</li>
+          <li>Bevelled surfaces, recessed fields, raised keys, a round amber
+          transport that turns red while running.</li>
+        </ul>
+        <div class="knobs">Variance <b>8</b> · Motion <b>6</b> · Signature: the display window</div>
+      </div>
+    </article>
+
+    <article class="variant">
+      <div class="idx">02</div>
+      <div>
+        <h2><a href="02-kinetic-type.html">Kinetic Type</a></h2>
+        <p class="thesis">Editorial and near-monochrome. The number carries the
+        whole page, and colour is reserved for one meaning only.</p>
+        <ul>
+          <li>Display-scale BPM with the unit set vertically beside it; the number
+          and the beat strip hang on one shared measure line.</li>
+          <li>Amber appears only when something is live — the active mode, a lit
+          beat, the running transport. Everything else is ink on black.</li>
+          <li>Accented beats are encoded as tick <em>height</em> rather than a ring,
+          so the bar stays countable at a glance.</li>
+          <li>Parameters read as a spec sheet: label left, control right, hairline
+          rules between.</li>
+        </ul>
+        <div class="knobs">Variance <b>9</b> · Motion <b>5</b> · Signature: the vertical unit label</div>
+      </div>
+    </article>
+
+    <article class="variant">
+      <div class="idx">03</div>
+      <div>
+        <h2><a href="03-pulse-field.html">Pulse Field</a></h2>
+        <p class="thesis">Built for a dim room and a guitar in your hands. The
+        beat stops being a dot and becomes light on the page.</p>
+        <ul>
+          <li>Every audible beat blooms the canvas behind the readout — readable
+          from across the room, in peripheral vision, without focusing on it.</li>
+          <li>Beat orbs glow hard on the strike and decay slowly, like a real LED.</li>
+          <li>Soft elevated surfaces, a floating pill mode selector, generous air.</li>
+          <li>The one variant where the glow is the affordance rather than decoration.</li>
+        </ul>
+        <div class="knobs">Variance <b>8</b> · Motion <b>7</b> · Signature: the canvas bloom</div>
+      </div>
+    </article>
+
+    <article class="variant">
+      <div class="idx">04</div>
+      <div>
+        <h2><a href="04-grid-console.html">Grid Console</a></h2>
+        <p class="thesis">A technical instrument. Everything sits on an exposed
+        grid, and nothing is rounded.</p>
+        <ul>
+          <li>Two-column console above 880px — the tempo readout stays fixed in
+          view while you edit a practice phase beside it.</li>
+          <li>Hairline grid, mono numerals throughout, corner register marks
+          framing the primary readout.</li>
+          <li>Parameters read as a table with a label gutter, not a stack of cards.</li>
+          <li>Collapses to a single stacked column on narrow screens.</li>
+        </ul>
+        <div class="knobs">Variance <b>8</b> · Motion <b>3</b> · Signature: register marks + exposed grid</div>
+      </div>
+    </article>
+  </main>
+
+  <section class="shared">
+    <h3>Shared across all four</h3>
+    <p><b>Performance mode.</b> While the metronome runs, the settings recede and
+    the readout takes the room. Hovering or focusing any panel brings it straight
+    back, so nothing is ever unreachable.</p>
+    <p><b>Strike and decay.</b> Beat feedback now hits in 30ms and fades over
+    300–500ms instead of blinking symmetrically — much closer to how a real
+    metronome LED reads, and it still clears its own <code>pulse</code> class
+    through <code>transitionend</code> exactly as before.</p>
+    <p><b>Nothing structural changed.</b> The <code>LOGIC-BEGIN</code>/<code>LOGIC-END</code>
+    block is byte-identical to the shipped app in every variant, and the
+    lookahead scheduler's capture-before-advance pattern is untouched. The only
+    added JS is a transport-state class and a per-beat flash hook, both called
+    from inside the existing gated callback.</p>
+  </section>
+
+  <footer>
+    These are disposable explorations, not candidates to merge as-is. Pick a
+    direction (or pieces of several) and it can be folded back into
+    <a href="../index.html">index.html</a> properly.
+  </footer>
+</body>
+</html>
