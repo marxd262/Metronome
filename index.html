@@ -1,130 +1,130 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="classic">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Guitar Practice Metronome</title>
 <style>
-:root {
-  color-scheme: dark;
+@layer base, components, themes, motion;
 
-  /* ── Primitives — raw values, named for what they are ── */
-  --neutral-975: #0e0e12;
-  --neutral-950: #15151a;
-  --neutral-900: #1e1e25;
-  --neutral-850: #26262f;
-  --neutral-800: #2a2a33;
-  --neutral-500: #666672;
-  --neutral-300: #9ba0a8;
-  --neutral-100: #e8e8ec;
-  --accent-500:  #f5a623;
-  --accent-950:  #1a1305;
-  --red-500:     #e5484d;
-
-  /* ── Semantics — same roles as before, now sourced from primitives ── */
-  --bg:          var(--neutral-950);
-  --panel:       var(--neutral-900);
-  --divider:     var(--neutral-800);
-  --text:        var(--neutral-100);
-  --text-muted:  var(--neutral-300);
-  --accent:      var(--accent-500);
-  --accent-beat: var(--red-500);
-  --on-accent:   var(--accent-950);
-  --dot-idle:    var(--neutral-500);
-  --accent-glow: color-mix(in srgb, var(--accent) 16%, transparent);
-
-  /* Surface stack — canvas/raised/overlay (--bg/--panel/--overlay). The
-     quick-select popup is the app's one overlay-level surface, one step
-     lighter than --panel so it reads as floating above the panels behind
-     it. --sunken/--inverse remain reserved: nothing shows an inset/code
-     area or an inverted block. */
-  --overlay: var(--neutral-800);
-  --sunken:  var(--neutral-975);
-  --inverse: var(--neutral-100);
-
-  --radius: 8px;
-  --radius-lg: 999px;
-  --radius-round: 50%;
-
-  /* Shadows — --shadow-md floats the quick-select popup above the panel
-     behind it. --shadow-sm/--shadow-lg remain reserved for the day another
-     floating element needs a lighter/heavier depth cue. Calibrated with
-     higher alpha than a typical light-mode scale, since a shadow needs more
-     contrast punch to read against a near-black canvas. */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.25);
-  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.4), 0 4px 8px rgba(0, 0, 0, 0.3);
-
-  /* Z-index — --z-overlay lifts the quick-select popup above page content.
-     --z-base/--z-raised remain reserved for the day ordinary in-flow
-     content needs explicit stacking. */
-  --z-base:    0;
-  --z-raised:  1;
-  --z-overlay: 10;
-
-  /* Motion */
-  --duration-instant: 0.05s;
-  --duration-fast: 0.15s;
-  --duration-moderate: 0.3s;
-  --ease-standard: ease;
-
-  /* Type weight */
-  --font-weight-semibold: 600;
-  --font-weight-bold: 700;
-
-  /* Type scale */
-  --text-xs:   0.75rem;
-  --text-sm:   0.875rem;
-  --text-base: 1rem;
-  --text-hero: 4.5rem;
-
-  /* Leading */
-  --leading-none:   1;
-  --leading-normal: 1.45;
-
-  /* Tracking */
-  --tracking-tighter: -0.035em;
-  --tracking-tight:  -0.02em;
-  --tracking-snug:    0.02em;
-  --tracking-wide:    0.04em;
-  --tracking-wider:   0.12em;
-  --tracking-widest:  0.15em;
-
-  /* Spacing scale */
-  --space-2xs: 0.5rem;
-  --space-xs:  0.75rem;
-  --space-sm:  1rem;
-  --space-md:  1.25rem;
-  --space-lg:  1.5rem;
-  --space-xl:  2rem;
-  --space-2xl: 2.5rem;
-  --space-3xl: 3rem;
-
-  /* Component sizing — dimensions for one specific control, not gaps/margins,
-     so deliberately outside the spacing scale above rather than forced onto it. */
-  --quick-select-popup-max-height: 12.5rem;
-  --quick-select-popup-min-width: 4.5rem;
-}
-
-@media (prefers-reduced-motion: reduce) {
+@layer base {
   :root {
-    --duration-fast: var(--duration-instant);
+    color-scheme: dark;
+
+    /* ── Primitives — raw values, named for what they are ── */
+    --neutral-975: #0e0e12;
+    --neutral-950: #15151a;
+    --neutral-900: #1e1e25;
+    --neutral-850: #26262f;
+    --neutral-800: #2a2a33;
+    --neutral-500: #666672;
+    --neutral-300: #9ba0a8;
+    --neutral-100: #e8e8ec;
+    --accent-500:  #f5a623;
+    --accent-950:  #1a1305;
+    --red-500:     #e5484d;
+
+    /* Reserved surface roles, unthemed. The themed surface/text/accent
+       tokens (--bg/--panel/--overlay/--divider/--text/--accent/etc.) are
+       not defined here — each :root[data-theme="…"] block in @layer
+       themes supplies them, so a theme always wins over this layer
+       structurally. --sunken/--inverse remain reserved: nothing shows an
+       inset/code area or an inverted block. */
+    --sunken:  var(--neutral-975);
+    --inverse: var(--neutral-100);
+
+    --radius-lg: 999px;
+    --radius-round: 50%;
+
+    /* Shadows — --shadow-md floats the quick-select popup above the panel
+       behind it. --shadow-sm/--shadow-lg remain reserved for the day another
+       floating element needs a lighter/heavier depth cue. Calibrated with
+       higher alpha than a typical light-mode scale, since a shadow needs more
+       contrast punch to read against a near-black canvas. */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.25);
+    --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.4), 0 4px 8px rgba(0, 0, 0, 0.3);
+
+    /* Z-index — --z-overlay lifts the quick-select popup above page content.
+       --z-base/--z-raised remain reserved for the day ordinary in-flow
+       content needs explicit stacking. */
+    --z-base:    0;
+    --z-raised:  1;
+    --z-overlay: 10;
+
+    /* Motion — owned here permanently; no theme may redefine these four. */
+    --duration-instant: 0.05s;
+    --duration-fast: 0.15s;
+    --duration-moderate: 0.3s;
+    --ease-standard: ease;
+
+    /* Type weight */
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+
+    /* Type scale */
+    --text-xs:   0.75rem;
+    --text-sm:   0.875rem;
+    --text-base: 1rem;
+    --text-hero: 4.5rem;
+
+    /* Leading */
+    --leading-none:   1;
+    --leading-normal: 1.45;
+
+    /* Tracking */
+    --tracking-tighter: -0.035em;
+    --tracking-tight:  -0.02em;
+    --tracking-snug:    0.02em;
+    --tracking-wide:    0.04em;
+    --tracking-wider:   0.12em;
+    --tracking-widest:  0.15em;
+
+    /* Spacing scale */
+    --space-2xs: 0.5rem;
+    --space-xs:  0.75rem;
+    --space-sm:  1rem;
+    --space-md:  1.25rem;
+    --space-lg:  1.5rem;
+    --space-xl:  2rem;
+    --space-2xl: 2.5rem;
+    --space-3xl: 3rem;
+
+    /* Component sizing — dimensions for one specific control, not gaps/margins,
+       so deliberately outside the spacing scale above rather than forced onto it. */
+    --quick-select-popup-max-height: 12.5rem;
+    --quick-select-popup-min-width: 4.5rem;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    max-width: var(--content-max-width);
+    margin: var(--space-2xl) auto;
+    padding: 0 var(--space-md) var(--space-3xl);
+    line-height: var(--leading-normal);
+  }
+
+  button {
+    font: inherit;
+    cursor: pointer;
+  }
+
+  input[type="range"]:focus-visible,
+  input[type="number"]:focus-visible,
+  select:focus-visible,
+  button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 }
 
-* { box-sizing: border-box; }
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  max-width: 480px;
-  margin: var(--space-2xl) auto;
-  padding: 0 var(--space-md) var(--space-3xl);
-  line-height: var(--leading-normal);
-}
+@layer components {
 
 h1 {
   font-size: var(--text-xs);
@@ -208,10 +208,14 @@ h1 {
   }
 }
 
+}
+
 @keyframes panel-fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+
+@layer components {
 
 #heroZone {
   text-align: center;
@@ -233,10 +237,14 @@ h1 {
   #heroBpm { animation: hero-enter 400ms var(--ease-standard) both; }
 }
 
+}
+
 @keyframes hero-enter {
   from { opacity: 0; transform: scale(0.9); }
   to   { opacity: 1; transform: scale(1); }
 }
+
+@layer components {
 
 #heroBpm::before {
   content: "";
@@ -297,14 +305,6 @@ input[type="number"].clamped {
   border-color: var(--accent-beat);
 }
 
-input[type="range"]:focus-visible,
-input[type="number"]:focus-visible,
-select:focus-visible,
-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
@@ -340,11 +340,6 @@ input[type="range"]::-moz-range-track {
   height: 4px;
   border-radius: var(--radius-round);
   background: var(--divider);
-}
-
-button {
-  font: inherit;
-  cursor: pointer;
 }
 
 .tapTempo {
@@ -523,12 +518,17 @@ button {
   border: 2px solid transparent;
   border-radius: var(--radius-round);
   background: var(--dot-idle);
-  transition: background-color var(--duration-instant) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), filter var(--duration-fast) var(--ease-standard), transform var(--duration-instant) var(--ease-standard);
+  transition:
+    background-color var(--dot-decay) var(--dot-ease),
+    box-shadow       var(--dot-decay) var(--dot-ease),
+    transform        var(--dot-decay) var(--dot-ease),
+    filter           var(--duration-fast) var(--ease-standard),
+    border-color     var(--duration-fast) var(--ease-standard);
 }
 
-.beat-dot.accented { border-color: var(--accent-beat); }
-.beat-dot.pulse { background: var(--accent); }
-.beat-dot.pulse.accent { background: var(--accent-beat); }
+.beat-dot.pulse       { background: var(--dot-pulse-bg); transition-duration: var(--dot-strike); }
+.beat-dot.pulse.accent{ background: var(--dot-accent-bg); }
+.beat-dot.accented    { border-color: var(--accent-beat); }
 
 /* Hover/active only ever match the accent-editor <button> dots, never the
    non-interactive practice-progress <div> dots rendered during Practice
@@ -563,6 +563,48 @@ button.beat-dot:active { transform: scale(0.94); }
   transform: scale(1.1);
   font-weight: var(--font-weight-semibold);
   text-shadow: 0 0 8px var(--accent);
+}
+
+}
+
+@layer themes {
+
+:root[data-theme="classic"] {
+  --bg:                #15151a;
+  --panel:             #1e1e25;
+  --overlay:           #2a2a33;
+  --divider:           #2a2a33;
+  --text:              #e8e8ec;
+  --text-muted:        #9ba0a8;
+  --text-dim:          #666672;
+  --accent:            #f5a623;
+  --accent-beat:       #e5484d;
+  --on-accent:         #1a1305;
+  --accent-glow:       color-mix(in srgb, var(--accent) 16%, transparent);
+  --dot-idle:          #666672;
+  --dot-pulse-bg:      var(--accent);
+  --dot-accent-bg:     var(--accent-beat);
+  --dot-strike:        0.05s;
+  --dot-decay:         0.05s;
+  --dot-ease:          ease;
+  --content-max-width: 480px;
+  --radius:            8px;
+  --radius-panel:      8px;
+  --font-ui:      system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono:    ui-monospace, "Cascadia Mono", "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace;
+  --font-display: var(--font-ui);
+}
+
+}
+
+@layer motion {
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: var(--duration-instant);
+  }
+}
+
 }
 </style>
 </head>
