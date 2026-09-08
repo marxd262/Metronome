@@ -298,3 +298,27 @@ test('buildQuickSelectValues appends a current value above every preset at the e
   const { buildQuickSelectValues } = loadLogic(['buildQuickSelectValues']);
   assert.deepEqual(buildQuickSelectValues([60, 80, 100], 400), [60, 80, 100, 400]);
 });
+
+test('resolveTheme passes through a theme in the valid list', () => {
+  const { resolveTheme } = loadLogic(['resolveTheme']);
+  assert.equal(resolveTheme('pulse-field', ['classic', 'pulse-field'], 'classic'), 'pulse-field');
+});
+
+test('resolveTheme falls back for a theme not in the valid list', () => {
+  const { resolveTheme } = loadLogic(['resolveTheme']);
+  assert.equal(resolveTheme('retired-theme', ['classic', 'pulse-field'], 'classic'), 'classic');
+});
+
+test('resolveTheme falls back for null, undefined and non-strings', () => {
+  const { resolveTheme } = loadLogic(['resolveTheme']);
+  assert.equal(resolveTheme(null, ['classic'], 'classic'), 'classic');
+  assert.equal(resolveTheme(undefined, ['classic'], 'classic'), 'classic');
+  assert.equal(resolveTheme(42, ['classic'], 'classic'), 'classic');
+  assert.equal(resolveTheme({}, ['classic'], 'classic'), 'classic');
+});
+
+test('resolveTheme falls back when the valid list is empty or missing', () => {
+  const { resolveTheme } = loadLogic(['resolveTheme']);
+  assert.equal(resolveTheme('classic', [], 'classic'), 'classic');
+  assert.equal(resolveTheme('classic', null, 'classic'), 'classic');
+});

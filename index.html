@@ -925,6 +925,11 @@ function buildQuickSelectValues(presets, currentValue) {
   const values = presets.includes(currentValue) ? presets.slice() : presets.concat([currentValue]);
   return values.sort((a, b) => a - b);
 }
+
+function resolveTheme(saved, validThemes, fallback) {
+  if (!Array.isArray(validThemes)) return fallback;
+  return validThemes.includes(saved) ? saved : fallback;
+}
 // LOGIC-END
 </script>
 <script>
