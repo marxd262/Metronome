@@ -274,15 +274,6 @@ h1 {
 
 @layer components {
 
-#heroBpm::before {
-  content: "";
-  position: absolute;
-  inset: -2.5rem -3.5rem;
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(ellipse 100% 100% at 50% 50%, var(--accent-glow) 0%, transparent 50%);
-}
-
 #heroBpmLabel {
   font-size: var(--text-xs);
   letter-spacing: var(--tracking-widest);
@@ -627,6 +618,19 @@ button.beat-dot:active { transform: scale(0.94); }
 :root[data-theme="classic"] #beatIndicator { order: -1; }
 :root[data-theme="classic"] #beatFlash   { display: none; }
 :root[data-theme="classic"] #masthead h1 { text-align: center; }
+
+/* Classic-only signature detail: an ambient glow behind the hero numeral.
+   Originally unscoped in @layer components, which wrongly bloomed every
+   theme's numeral (invisible in Pulse Engine only because its .hero-readout
+   clips overflow) — moved here, theme-scoped, same declarations. */
+:root[data-theme="classic"] #heroBpm::before {
+  content: "";
+  position: absolute;
+  inset: -2.5rem -3.5rem;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 100% 100% at 50% 50%, var(--accent-glow) 0%, transparent 50%);
+}
 
 :root[data-theme="pulse-engine"] {
   --bg:                #07070a;
