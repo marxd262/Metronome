@@ -3483,6 +3483,73 @@ let practiceRuntime = null;
 // that now means something else. Read by the playhead frame loop.
 let patternGeneration = 0;
 
+// The playhead is the app's only per-SLOT visual feedback, and deliberately
+// does not use the deferred-setTimeout pattern that per-beat feedback uses:
+// at high divisions those callbacks queue rather than skip, and the highlight
+// would drag behind the audio. This loop reads the audio clock each frame and
+// renders only slots already in the past, so it can neither run early nor
+// fall behind — it just shows fewer slots when there are more than frames.
+const PLAYHEAD_RING_SIZE = 256;
+let playheadRing = new Array(PLAYHEAD_RING_SIZE).fill(null);
+let playheadWriteIndex = 0;
+let playbackRunId = 0;
+let playheadFrameId = null;
+let playheadSlotIndex = -1;
+
+function pushPlayheadEntry(time, slotIndex) {
+  playheadRing[playheadWriteIndex] = {
+    time: time,
+    slotIndex: slotIndex,
+    runId: playbackRunId,
+    generation: patternGeneration,
+  };
+  playheadWriteIndex = (playheadWriteIndex + 1) % PLAYHEAD_RING_SIZE;
+}
+
+function clearPlayhead() {
+  const grid = document.getElementById('patternGrid');
+  const slot = grid.querySelector('.pattern-slot.playhead');
+  if (slot) slot.classList.remove('playhead');
+  const row = grid.querySelector('.pattern-row.playhead-row');
+  if (row) row.classList.remove('playhead-row');
+  playheadSlotIndex = -1;
+}
+
+function playheadFrame() {
+  if (!isPlaying) return;
+  const ctx = ensureAudioContext();
+  const entry = findPlayheadEntry(playheadRing, ctx.currentTime, playbackRunId, patternGeneration);
+  // A slotIndex of -1 is pushed for practice-break beats and means "no slot is
+  // sounding"; clearPlayhead leaves playheadSlotIndex at -1, so it settles
+  // after one frame rather than clearing repeatedly.
+  if (entry && entry.slotIndex !== playheadSlotIndex) {
+    clearPlayhead();
+    const el = document.getElementById('patternGrid')
+      .querySelector(`.pattern-slot[data-index="${entry.slotIndex}"]`);
+    if (el) {
+      el.classList.add('playhead');
+      const row = el.closest('.pattern-row');
+      if (row) row.classList.add('playhead-row');
+      playheadSlotIndex = entry.slotIndex;
+    }
+  }
+  playheadFrameId = requestAnimationFrame(playheadFrame);
+}
+
+function startPlayhead() {
+  playbackRunId++;
+  playheadRing.fill(null);
+  playheadWriteIndex = 0;
+  playheadSlotIndex = -1;
+  playheadFrameId = requestAnimationFrame(playheadFrame);
+}
+
+function stopPlayhead() {
+  if (playheadFrameId !== null) cancelAnimationFrame(playheadFrameId);
+  playheadFrameId = null;
+  clearPlayhead();
+}
+
 function currentModeBpm() {
   if (state.topBar.activeTab === 'ramp') {
     return rampRuntime.currentBpm;
@@ -3587,6 +3654,11 @@ function scheduleBeat(time) {
       ? (s === 0 ? LEVEL_NORMAL : LEVEL_MUTED)
       : patternLevelAt(pattern, beatIndex, s);
     if (s === 0) beatLevel = level;
+    // -1 during a break: the pattern is not playing, so no slot should light.
+    pushPlayheadEntry(
+      time + slotInterval * s,
+      isPracticeBreak ? -1 : patternSlotIndex(beatIndex, s, division)
+    );
     if (level === LEVEL_MUTED) continue;
     scheduleClick(time + slotInterval * s, level);
   }
@@ -3654,6 +3726,7 @@ function startPlayback() {
   if (ctx.state === 'suspended') ctx.resume();
   isPlaying = true;
   beatIndexInBar = 0;
+  startPlayhead();
   nextNoteTime = ctx.currentTime + 0.05;
   if (state.topBar.activeTab === 'ramp') {
     rampRuntime = {
@@ -3682,6 +3755,7 @@ function stopPlayback() {
   if (!isPlaying) return;
   isPlaying = false;
   clearTimeout(schedulerTimerId);
+  stopPlayhead();
   setTransportState(false);
   updatePracticeReadout();
   renderDotRow(state.topBar.pattern.beats);
