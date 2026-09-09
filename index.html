@@ -2837,6 +2837,23 @@ function buildPresetLevels(beats, division) {
   return levels;
 }
 
+// Preserves every level by its (beat, slot) position rather than by flat index,
+// so changing division does not shear the pattern sideways. Positions that did
+// not exist before get the same defaults a preset would give them.
+function resizePatternLevels(levels, oldBeats, oldDivision, newBeats, newDivision) {
+  const result = [];
+  for (let beat = 0; beat < newBeats; beat++) {
+    for (let slot = 0; slot < newDivision; slot++) {
+      const survives = beat < oldBeats && slot < oldDivision;
+      const previous = survives && levels
+        ? levels[patternSlotIndex(beat, slot, oldDivision)]
+        : undefined;
+      result.push(Number.isInteger(previous) ? previous : defaultLevelForSlot(beat, slot));
+    }
+  }
+  return result;
+}
+
 function isAccentBeat(beatIndexInBar, accentPattern) {
   return Boolean(accentPattern && accentPattern[beatIndexInBar]);
 }

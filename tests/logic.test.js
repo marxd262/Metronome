@@ -433,3 +433,39 @@ test('buildPresetLevels produces exactly beats times division entries', () => {
   assert.equal(buildPresetLevels(7, 5).length, 35);
   assert.equal(buildPresetLevels(7, 5).filter((l) => l === 3).length, 1);
 });
+
+test('resizePatternLevels is the identity when nothing changes', () => {
+  const { resizePatternLevels } = loadLogic(['resizePatternLevels']);
+  const levels = [3, 1, 0, 2, 2, 1];
+  assert.deepEqual(resizePatternLevels(levels, 3, 2, 3, 2), levels);
+});
+
+test('resizePatternLevels pads new beat rows with a normal downbeat and quiet slots', () => {
+  const { resizePatternLevels } = loadLogic(['resizePatternLevels']);
+  //  beat 1: accent, quiet     beat 2: muted, muted     beat 3: normal, quiet
+  const levels = [3, 1, 0, 0, 2, 1];
+  assert.deepEqual(
+    resizePatternLevels(levels, 3, 2, 5, 2),
+    [3, 1, 0, 0, 2, 1, 2, 1, 2, 1]
+  );
+});
+
+test('resizePatternLevels pads new subdivision slots with quiet', () => {
+  const { resizePatternLevels } = loadLogic(['resizePatternLevels']);
+  assert.deepEqual(
+    resizePatternLevels([3, 2], 2, 1, 2, 3),
+    [3, 1, 1, 2, 1, 1]
+  );
+});
+
+test('resizePatternLevels truncates on shrink without disturbing survivors', () => {
+  const { resizePatternLevels } = loadLogic(['resizePatternLevels']);
+  const levels = [3, 1, 0, 2, 1, 0, 2, 1, 0];
+  assert.deepEqual(resizePatternLevels(levels, 3, 3, 2, 2), [3, 1, 2, 1]);
+});
+
+test('resizePatternLevels fills defaults for a null or short source', () => {
+  const { resizePatternLevels } = loadLogic(['resizePatternLevels']);
+  assert.deepEqual(resizePatternLevels(null, 0, 0, 2, 2), [3, 1, 2, 1]);
+  assert.deepEqual(resizePatternLevels([3], 2, 1, 2, 1), [3, 2]);
+});
