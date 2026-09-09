@@ -2742,6 +2742,67 @@ function subdivisionIntervalSeconds(bpm, subdivision) {
   return beatIntervalSeconds(bpm) / subdivisionCount(subdivision);
 }
 
+// Slot levels. Ordered so cyclePatternLevel can step through them with modulo
+// arithmetic, and so the gain table below can be indexed directly.
+const LEVEL_MUTED = 0;
+const LEVEL_QUIET = 1;
+const LEVEL_NORMAL = 2;
+const LEVEL_ACCENT = 3;
+const LEVEL_COUNT = 4;
+
+const PATTERN_MIN = 1;
+const PATTERN_MAX = 64;
+
+function patternSlotCount(beats, division) {
+  return beats * division;
+}
+
+function patternSlotIndex(beat, slot, division) {
+  return beat * division + slot;
+}
+
+function clampPatternValue(value, fallback) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(PATTERN_MAX, Math.max(PATTERN_MIN, n));
+}
+
+function clampPatternBeats(value) {
+  return clampPatternValue(value, 4);
+}
+
+function clampPatternDivision(value) {
+  return clampPatternValue(value, 1);
+}
+
+function slotIntervalSeconds(bpm, division) {
+  return beatIntervalSeconds(bpm) / division;
+}
+
+// The three gain factors are exactly the ones the pre-pattern scheduler used
+// (subdivision 0.4, unaccented beat 0.7, accent 1.0), so an equivalent pattern
+// sounds identical to what the app produced before the editor existed.
+function levelGainFactor(level) {
+  const table = [0, 0.4, 0.7, 1.0];
+  return table[level] === undefined ? table[LEVEL_NORMAL] : table[level];
+}
+
+function levelIsAccent(level) {
+  return level === LEVEL_ACCENT;
+}
+
+function cyclePatternLevel(level, direction) {
+  const current = Number.isInteger(level) ? level : LEVEL_NORMAL;
+  const step = direction < 0 ? -1 : 1;
+  return ((current + step) % LEVEL_COUNT + LEVEL_COUNT) % LEVEL_COUNT;
+}
+
+function patternLevelAt(pattern, beat, slot) {
+  const levels = pattern && pattern.levels;
+  const raw = levels ? levels[patternSlotIndex(beat, slot, pattern.division)] : undefined;
+  return Number.isInteger(raw) ? raw : LEVEL_NORMAL;
+}
+
 function isAccentBeat(beatIndexInBar, accentPattern) {
   return Boolean(accentPattern && accentPattern[beatIndexInBar]);
 }

@@ -322,3 +322,83 @@ test('resolveTheme falls back when the valid list is empty or missing', () => {
   assert.equal(resolveTheme('classic', [], 'classic'), 'classic');
   assert.equal(resolveTheme('classic', null, 'classic'), 'classic');
 });
+
+test('patternSlotIndex is row-major over division', () => {
+  const { patternSlotIndex } = loadLogic(['patternSlotIndex']);
+  assert.equal(patternSlotIndex(0, 0, 4), 0);
+  assert.equal(patternSlotIndex(0, 3, 4), 3);
+  assert.equal(patternSlotIndex(1, 0, 4), 4);
+  assert.equal(patternSlotIndex(2, 1, 3), 7);
+});
+
+test('patternSlotCount multiplies beats by division', () => {
+  const { patternSlotCount } = loadLogic(['patternSlotCount']);
+  assert.equal(patternSlotCount(4, 1), 4);
+  assert.equal(patternSlotCount(7, 5), 35);
+  assert.equal(patternSlotCount(64, 64), 4096);
+});
+
+test('clampPatternBeats holds the 1-64 range and falls back on junk', () => {
+  const { clampPatternBeats } = loadLogic(['clampPatternBeats']);
+  assert.equal(clampPatternBeats(0), 1);
+  assert.equal(clampPatternBeats(1), 1);
+  assert.equal(clampPatternBeats(64), 64);
+  assert.equal(clampPatternBeats(65), 64);
+  assert.equal(clampPatternBeats(7.4), 7);
+  assert.equal(clampPatternBeats('abc'), 4);
+  assert.equal(clampPatternBeats(undefined), 4);
+});
+
+test('clampPatternDivision holds the 1-64 range and falls back to 1', () => {
+  const { clampPatternDivision } = loadLogic(['clampPatternDivision']);
+  assert.equal(clampPatternDivision(0), 1);
+  assert.equal(clampPatternDivision(64), 64);
+  assert.equal(clampPatternDivision(100), 64);
+  assert.equal(clampPatternDivision(null), 1);
+});
+
+test('slotIntervalSeconds divides the beat evenly', () => {
+  const { slotIntervalSeconds } = loadLogic(['slotIntervalSeconds']);
+  assert.equal(slotIntervalSeconds(60, 1), 1);
+  assert.equal(slotIntervalSeconds(60, 4), 0.25);
+  assert.equal(slotIntervalSeconds(120, 5), 0.1);
+});
+
+test('levelGainFactor reproduces the pre-existing gain values', () => {
+  const { levelGainFactor, LEVEL_MUTED, LEVEL_QUIET, LEVEL_NORMAL, LEVEL_ACCENT } =
+    loadLogic(['levelGainFactor', 'LEVEL_MUTED', 'LEVEL_QUIET', 'LEVEL_NORMAL', 'LEVEL_ACCENT']);
+  assert.equal(levelGainFactor(LEVEL_MUTED), 0);
+  assert.equal(levelGainFactor(LEVEL_QUIET), 0.4);
+  assert.equal(levelGainFactor(LEVEL_NORMAL), 0.7);
+  assert.equal(levelGainFactor(LEVEL_ACCENT), 1);
+  assert.equal(levelGainFactor(99), 0.7);
+});
+
+test('levelIsAccent is true only for the accent level', () => {
+  const { levelIsAccent, LEVEL_QUIET, LEVEL_NORMAL, LEVEL_ACCENT } =
+    loadLogic(['levelIsAccent', 'LEVEL_QUIET', 'LEVEL_NORMAL', 'LEVEL_ACCENT']);
+  assert.equal(levelIsAccent(LEVEL_ACCENT), true);
+  assert.equal(levelIsAccent(LEVEL_NORMAL), false);
+  assert.equal(levelIsAccent(LEVEL_QUIET), false);
+});
+
+test('cyclePatternLevel wraps forward and backward through four levels', () => {
+  const { cyclePatternLevel } = loadLogic(['cyclePatternLevel']);
+  assert.equal(cyclePatternLevel(0, 1), 1);
+  assert.equal(cyclePatternLevel(3, 1), 0);
+  assert.equal(cyclePatternLevel(0, -1), 3);
+  assert.equal(cyclePatternLevel(2, -1), 1);
+});
+
+test('cyclePatternLevel treats a non-integer level as normal', () => {
+  const { cyclePatternLevel } = loadLogic(['cyclePatternLevel']);
+  assert.equal(cyclePatternLevel(undefined, 1), 3);
+});
+
+test('patternLevelAt reads a slot and defaults a missing one to normal', () => {
+  const { patternLevelAt } = loadLogic(['patternLevelAt']);
+  const pattern = { beats: 2, division: 2, levels: [3, 1, 2, 0] };
+  assert.equal(patternLevelAt(pattern, 0, 0), 3);
+  assert.equal(patternLevelAt(pattern, 1, 1), 0);
+  assert.equal(patternLevelAt({ beats: 1, division: 1, levels: [] }, 0, 0), 2);
+});
