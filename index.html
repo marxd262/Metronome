@@ -586,6 +586,226 @@ button.beat-dot:active { transform: scale(0.94); }
 
 }
 
+@layer components {
+  /* Sizing for the editor's own controls, deliberately outside the shared
+     spacing scale for the same reason --quick-select-popup-* is: these are
+     dimensions of one specific control, not gaps between things. */
+  #patternEditor {
+    /* 26px, not the 44px touch guideline. Adjacent grid cells cannot reach 44
+       without their hit areas overlapping their neighbours, which trades a
+       small target for a wrong one. 26px plus a 4px gap is the largest target
+       that stays honest; the keyboard path added in Task 8 is the real
+       accommodation for anyone who cannot hit it. */
+    --pattern-slot-size: 26px;
+    --pattern-slot-size-compact: 10px;
+    --pattern-grid-max-height: 40vh;
+
+    border: 1px solid var(--divider);
+    border-radius: var(--radius-panel);
+    padding: var(--space-sm);
+    margin-bottom: var(--space-sm);
+    background: var(--panel);
+  }
+
+  #patternHeader {
+    display: flex;
+    gap: var(--space-sm);
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .pattern-field { margin-bottom: 0; }
+
+  #patternMeta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+    margin-left: auto;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  #patternToggle {
+    font: inherit;
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-muted);
+    background: none;
+    border: 1px solid var(--divider);
+    border-radius: var(--radius);
+    padding: var(--space-2xs) var(--space-xs);
+    cursor: pointer;
+    transition: color var(--duration-fast) var(--ease-standard),
+                border-color var(--duration-fast) var(--ease-standard);
+  }
+
+  #patternToggle:hover { color: var(--text); border-color: var(--accent); }
+
+  /* An author display value beats the UA sheet's [hidden] { display: none },
+     so the collapse silently does nothing without this rule. The project
+     already hit this once: see .panel[hidden]. */
+  #patternBody[hidden] { display: none; }
+
+  #patternGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: var(--space-sm);
+    max-height: var(--pattern-grid-max-height);
+    overflow: auto;
+  }
+
+  .pattern-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: var(--radius);
+    padding: 2px;
+  }
+
+  .pattern-beat-number {
+    width: 1.5rem;
+    flex: none;
+    text-align: right;
+    padding-right: var(--space-2xs);
+    font-size: var(--text-xs);
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Deliberately NOT .beat-dot: the components layer locks that class's
+     transition and five themes restate its states. A slot is a different
+     control with a different lifecycle and must not inherit either. */
+  .pattern-slot {
+    appearance: none;
+    -webkit-appearance: none;
+    flex: none;
+    width: var(--pattern-slot-size);
+    height: var(--pattern-slot-size);
+    padding: 0;
+    border: 1px solid var(--divider);
+    /* Deliberately NOT var(--radius): each theme scales that token for inputs
+       and buttons, from 3px to 10px, and 10px on a 26px cell is a pill. A cell
+       radius wants to stay a cell radius, and varying it against the section's
+       --radius-panel is the point. */
+    border-radius: 3px;
+    background: var(--overlay);
+    cursor: pointer;
+    position: relative;
+    transition: border-color var(--duration-fast) var(--ease-standard),
+                background-color var(--duration-fast) var(--ease-standard);
+  }
+
+  /* The inner mark carries the level, so the four levels differ in fill size
+     as well as colour and stay distinguishable without colour vision. */
+  .pattern-slot::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    border-radius: 2px;
+    width: 0;
+    height: 0;
+    background: var(--text);
+  }
+
+  .pattern-slot.level-muted {
+    background: transparent;
+    border-style: dashed;
+    opacity: 0.5;
+  }
+
+  .pattern-slot.level-quiet::after  { width: 6px;  height: 6px;  background: var(--text-dim); }
+  .pattern-slot.level-normal::after { width: 11px; height: 11px; background: var(--text); }
+
+  /* Border and fill carry the accent, and no third signal. An earlier draft
+     also tinted the background with --accent-glow, which Pulse Engine defines
+     at 55% accent — three accent cues on one 26px cell, blocking nearly solid
+     and spending the accent budget on a control that repeats up to 4096 times. */
+  .pattern-slot.level-accent { border-color: var(--accent); }
+  .pattern-slot.level-accent::after { width: 16px; height: 16px; background: var(--accent); }
+
+  .pattern-slot.beat-start { border-color: var(--text-dim); }
+
+  .pattern-slot:hover { border-color: var(--accent); }
+
+  /* Playhead. Applied and removed from an animation frame, never from a
+     transitionend listener, so it cannot get stuck the way .pulse once did. */
+  .pattern-slot.playhead { box-shadow: 0 0 0 2px var(--accent), 0 0 12px var(--accent-glow); }
+
+  /* Not var(--overlay): in Classic that token is the slot's own background and
+     the section's border colour, all three #2a2a33, so the row highlight would
+     be invisible against the very cells it is meant to group. */
+  .pattern-row.playhead-row { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+  /* While playing, everything but the sounding slot recedes so the playhead
+     reads at a glance. The grid stays fully interactive — this is a reading
+     emphasis, not a disabled state. body.playing is already toggled by
+     setTransportState. */
+  body.playing .pattern-slot:not(.playhead) { opacity: 0.7; }
+  body.playing .pattern-slot.level-muted:not(.playhead) { opacity: 0.35; }
+
+  #patternGrid.compact { gap: 2px; }
+  #patternGrid.compact .pattern-row { gap: 2px; }
+  #patternGrid.compact .pattern-slot {
+    width: var(--pattern-slot-size-compact);
+    height: var(--pattern-slot-size-compact);
+    border-radius: 2px;
+  }
+  #patternGrid.compact .pattern-slot.level-quiet::after  { width: 3px; height: 3px; }
+  #patternGrid.compact .pattern-slot.level-normal::after { width: 5px; height: 5px; }
+  #patternGrid.compact .pattern-slot.level-accent::after { width: 6px; height: 6px; }
+  #patternGrid.compact .pattern-beat-number { width: 1.1rem; }
+
+  /* The legend is the only thing that teaches four fill sizes. It sits inside
+     the collapsible body so it disappears with the grid it explains. */
+  #patternLegend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-top: var(--space-sm);
+    padding-top: var(--space-xs);
+    border-top: 1px solid var(--divider);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+
+  #patternLegend > span {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+  }
+
+  #patternHint { margin-left: auto; color: var(--text-dim); }
+
+  .pattern-swatch {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    border: 1px solid var(--divider);
+    border-radius: 3px;
+    background: var(--overlay);
+    position: relative;
+  }
+
+  .pattern-swatch::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    border-radius: 2px;
+    width: 0;
+    height: 0;
+  }
+
+  .pattern-swatch.level-muted { background: transparent; border-style: dashed; opacity: 0.5; }
+  .pattern-swatch.level-quiet::after  { width: 4px; height: 4px; background: var(--text-dim); }
+  .pattern-swatch.level-normal::after { width: 7px; height: 7px; background: var(--text); }
+  .pattern-swatch.level-accent { border-color: var(--accent); }
+  .pattern-swatch.level-accent::after { width: 9px; height: 9px; background: var(--accent); }
+}
+
 @layer themes {
 
 :root[data-theme="classic"] {
@@ -2541,6 +2761,51 @@ button.beat-dot:active { transform: scale(0.94); }
     <div id="rampReadout" class="readout" hidden></div>
     <div id="practiceReadout" class="readout" hidden></div>
   </div>
+
+  <section id="patternEditor" aria-label="Rhythm pattern">
+    <div id="patternHeader">
+      <div class="field-group pattern-field">
+        <label for="patternPreset">Preset</label>
+        <select id="patternPreset">
+          <option value="none">None</option>
+          <option value="eighths">Eighths</option>
+          <option value="triplets">Triplets</option>
+          <option value="sixteenths">Sixteenths</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="field-group pattern-field">
+        <label for="patternBeats">Beats</label>
+        <div class="stepper-row">
+          <button class="step-btn" type="button" data-step-target="patternBeats" data-step="-1">&minus;</button>
+          <input id="patternBeats" type="number" min="1" max="64" step="1" value="4">
+          <button class="step-btn" type="button" data-step-target="patternBeats" data-step="1">&plus;</button>
+        </div>
+      </div>
+      <div class="field-group pattern-field">
+        <label for="patternDivision">Division</label>
+        <div class="stepper-row">
+          <button class="step-btn" type="button" data-step-target="patternDivision" data-step="-1">&minus;</button>
+          <input id="patternDivision" type="number" min="1" max="64" step="1" value="1">
+          <button class="step-btn" type="button" data-step-target="patternDivision" data-step="1">&plus;</button>
+        </div>
+      </div>
+      <div id="patternMeta">
+        <span id="patternSlotCount">4 slots</span>
+        <button id="patternToggle" type="button" aria-expanded="true" aria-controls="patternBody">Hide</button>
+      </div>
+    </div>
+    <div id="patternBody">
+      <div id="patternGrid" role="group" aria-label="Rhythm pattern slots"></div>
+      <div id="patternLegend">
+        <span><span class="pattern-swatch level-muted" aria-hidden="true"></span>Muted</span>
+        <span><span class="pattern-swatch level-quiet" aria-hidden="true"></span>Quiet</span>
+        <span><span class="pattern-swatch level-normal" aria-hidden="true"></span>Normal</span>
+        <span><span class="pattern-swatch level-accent" aria-hidden="true"></span>Accented</span>
+        <span id="patternHint">Click a slot to cycle forward, shift-click to go back</span>
+      </div>
+    </div>
+  </section>
 
   <div id="panel-metronome" class="panel">
     <div class="field-group">
