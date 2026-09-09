@@ -1042,7 +1042,12 @@ with:
 const DEFAULT_STATE = {
   topBar: {
     soundStyle: 'click', volume: 80, activeTab: 'metronome', theme: 'classic',
-    pattern: { beats: 4, division: 1, preset: 'none', levels: [3, 2, 2, 2] },
+    // LEVEL_* come from the LOGIC <script>, which runs before this block, so
+    // the seed states its levels by name like every other level reference.
+    pattern: {
+      beats: 4, division: 1, preset: 'none',
+      levels: [LEVEL_ACCENT, LEVEL_NORMAL, LEVEL_NORMAL, LEVEL_NORMAL],
+    },
     patternEditorOpen: true,
   },
   metronome: { bpm: 120, percent: 100 },
