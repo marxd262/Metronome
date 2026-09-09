@@ -141,9 +141,18 @@ know which mode it was in, and `bindTopBar`'s time-signature handler had to
 be fixed once for calling the wrong renderer. Accent editing now lives in
 the pattern editor, so the row has one job and one renderer,
 `renderDotRow(count)`: `<div>` dots, always `aria-hidden`, never clickable.
-Call it with `state.topBar.pattern.beats` for bar position, or with
-`practiceRuntime.beatsPerPhase` for phase progress. Its forced synchronous
-reflow is load-bearing and is commented in place — do not remove it.
+It has three callers, and the count each passes is the whole contract:
+`state.topBar.pattern.beats` for bar position, `practiceRuntime.beatsPerPhase`
+for phase progress, and `practiceRuntime.breakBeats` during a Practice break —
+break length is decoupled from the phase, so sizing a break row from
+`beatsPerPhase` would be wrong. Its forced synchronous reflow is load-bearing
+and is commented in place — do not remove it.
+
+That reflow is also what makes it safe for `afterPatternResize` to re-render
+the row mid-playback, which it does in every mode except Practice: a changed
+beat count has to reach the dots immediately, or the indicator disagrees with
+the audio. Practice is the exception because its row is showing phase
+progress, not bar position.
 
 ### Quick-select value dropdown
 
@@ -175,11 +184,21 @@ themes' animations can never collide.
 `base` holds resets, element defaults, the primitive tokens
 (`--neutral-*`, `--accent-500`, `--red-500`), and shared motion/spacing
 scales. `components` holds every component rule, written against custom
-properties rather than raw values — including the whole rhythm pattern
-editor (`#patternGrid`, `.pattern-row`, `.pattern-slot` and its
-level/`beat-start`/`playhead` states), which no theme overrides at all: it
-reads only tokens the themes already define, so it adds no new entries to
-`REQUIRED_TOKENS`. `themes` holds one
+properties rather than raw values — including every rule the rhythm pattern
+editor owns (`#patternEditor`, `#patternHeader`, `.pattern-field`,
+`#patternGrid`, `.pattern-row`, `.pattern-slot` and its
+level/`beat-start`/`playhead` states), none of which any theme overrides.
+That is why the header fields are `.pattern-field` and deliberately *not*
+`.field-group`: two themes restructure `.field-group` from the themes layer,
+which outranks anything `#patternHeader` can say. The shared controls inside
+the editor — its labels, `<select>`, number inputs and `.stepper-row` — do
+still theme, through the same selectors every other field uses. Beyond those
+shared selectors the editor reads base-layer scales (`--space-*`,
+`--text-xs`, `--duration-fast`, `--ease-standard`,
+`--font-weight-semibold`), tokens the themes already define, and three of
+its own declared on `#patternEditor` (`--pattern-slot-size`,
+`--pattern-slot-size-compact`, `--pattern-grid-max-height`) — so it adds no
+new entries to `REQUIRED_TOKENS`. `themes` holds one
 `:root[data-theme="…"]` token block per theme, plus that theme's
 structural overrides (hero element order, content max-width, and, for
 Grid Console, the page's column count). `motion` holds

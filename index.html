@@ -605,7 +605,25 @@ input[type="range"]::-moz-range-track {
     flex-wrap: wrap;
   }
 
-  .pattern-field { margin-bottom: 0; }
+  /* Deliberately NOT .field-group, even though this is one. Kinetic Type and
+     Grid Console restyle .field-group from the themes layer into a two-column
+     grid with its own horizontal rule, padding and a wide minimum first
+     column; layer order puts themes above components, so #patternHeader's flex
+     row cannot override that. The header would gain a rule per field, and the
+     Preset select — which neither theme gives a grid-column — would drop below
+     its label while Beats and Division stayed beside theirs. Restating the two
+     things the header actually needs (stack the label over its control, shared
+     label typography) keeps the editor's own layout unreachable from the
+     themes layer. The controls inside still theme normally, through the shared
+     label/select/input/.stepper-row rules. */
+  .pattern-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xs);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin-bottom: 0;
+  }
 
   #patternMeta {
     display: flex;
@@ -2693,7 +2711,7 @@ input[type="range"]::-moz-range-track {
 
   <section id="patternEditor" aria-label="Rhythm pattern">
     <div id="patternHeader">
-      <div class="field-group pattern-field">
+      <div class="pattern-field">
         <label for="patternPreset">Preset</label>
         <select id="patternPreset">
           <option value="none">None</option>
@@ -2703,7 +2721,7 @@ input[type="range"]::-moz-range-track {
           <option value="custom">Custom</option>
         </select>
       </div>
-      <div class="field-group pattern-field">
+      <div class="pattern-field">
         <label for="patternBeats">Beats</label>
         <div class="stepper-row">
           <button class="step-btn" type="button" data-step-target="patternBeats" data-step="-1">&minus;</button>
@@ -2711,7 +2729,7 @@ input[type="range"]::-moz-range-track {
           <button class="step-btn" type="button" data-step-target="patternBeats" data-step="1">&plus;</button>
         </div>
       </div>
-      <div class="field-group pattern-field">
+      <div class="pattern-field">
         <label for="patternDivision">Division</label>
         <div class="stepper-row">
           <button class="step-btn" type="button" data-step-target="patternDivision" data-step="-1">&minus;</button>
@@ -3442,8 +3460,12 @@ function playheadFrame() {
       el.classList.add('playhead');
       const row = el.closest('.pattern-row');
       if (row) row.classList.add('playhead-row');
-      playheadSlotIndex = entry.slotIndex;
     }
+    // Set unconditionally, after clearPlayhead reset it: a lookup that misses
+    // (a stale index, or the -1 break sentinel) must still settle, or the
+    // inequality above stays true and every frame re-runs the querySelector
+    // until the record changes.
+    playheadSlotIndex = entry.slotIndex;
   }
   playheadFrameId = requestAnimationFrame(playheadFrame);
 }
@@ -3684,6 +3706,13 @@ document.addEventListener('keydown', (e) => {
   if (openQuickSelectPopup) return;
   const tag = document.activeElement && document.activeElement.tagName;
   if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  // The pattern editor's controls are <button>s, which the tag guard above
+  // does not cover. Without this the preventDefault below would suppress the
+  // native Space activation of a grid slot, the Hide/Show toggle and the
+  // editor's steppers — and Shift+Space on a slot would both cycle the level
+  // and toggle playback. The grid's own keydown handler owns Space inside the
+  // editor; everywhere else Space stays the transport shortcut.
+  if (document.activeElement && document.activeElement.closest('#patternEditor')) return;
   e.preventDefault();
   if (isPlaying) stopPlayback(); else startPlayback();
 });
@@ -3945,11 +3974,19 @@ function bindPatternEditor() {
   function afterPatternResize() {
     const pattern = state.topBar.pattern;
     patternGeneration++;
+    // Re-rendering the grid wipes the .playhead class but not the index the
+    // frame loop compares against; without this the first post-resize record
+    // carrying that same index would be skipped and no slot would light while
+    // the rest of the grid sits dimmed by body.playing.
+    clearPlayhead();
     beatIndexInBar = beatIndexInBar % pattern.beats;
     renderPatternGrid();
-    // Never re-render the dot row mid-playback: during Practice it is showing
-    // phase progress, not bar position, and would be silently replaced.
-    if (!isPlaying) renderDotRow(pattern.beats);
+    // Practice is the one mode that must not re-render here: mid-playback its
+    // dot row shows phase progress, not bar position, and would be silently
+    // replaced by a bar-sized row. Everywhere else the row has to follow the
+    // new beat count immediately, or it disagrees with the audio — and
+    // flashBeatIndicator finds no dot for the beats past the old end.
+    if (!isPlaying || state.topBar.activeTab !== 'practice') renderDotRow(pattern.beats);
   }
 
   function setBeats(value) {
@@ -4059,10 +4096,13 @@ function bindPatternEditor() {
     const index = Number(el.dataset.index);
     const rowStart = Math.floor(index / pattern.division) * pattern.division;
 
-    // Plain Enter/Space fires a click and cycles forward for free. Shift plus
-    // either is the keyboard equivalent of shift-click; preventDefault here
-    // also suppresses the click that Space would otherwise fire on keyup, so
-    // the level moves one step, not two.
+    // Plain Enter/Space fires a click and cycles forward for free — which
+    // depends on the document-level transport shortcut skipping anything
+    // focused inside #patternEditor, since it would otherwise preventDefault
+    // the Space that produces that click. Shift plus either is the keyboard
+    // equivalent of shift-click; preventDefault here also suppresses the click
+    // that Space would otherwise fire on keyup, so the level moves one step,
+    // not two.
     if ((e.key === 'Enter' || e.key === ' ') && e.shiftKey) {
       e.preventDefault();
       cycleSlot(el, -1);
