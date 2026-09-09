@@ -2722,14 +2722,6 @@ button.beat-dot:active { transform: scale(0.94); }
   </header>
 
   <div id="topbar">
-    <label>Subdivision
-      <select id="subdivision">
-        <option value="none">None</option>
-        <option value="eighths">Eighths</option>
-        <option value="triplets">Triplets</option>
-        <option value="sixteenths">Sixteenths</option>
-      </select>
-    </label>
     <label>Sound
       <select id="soundStyle">
         <option value="click">Click</option>
@@ -2839,14 +2831,6 @@ button.beat-dot:active { transform: scale(0.94); }
       </div>
       <input id="metronomePercentRange" type="range" min="50" max="150" step="1" value="100">
     </div>
-    <div class="field-group">
-      <label for="metronomeTimeSig">Beats per Bar</label>
-      <div class="stepper-row">
-        <button class="step-btn" type="button" data-step-target="metronomeTimeSig" data-step="-1">&minus;</button>
-        <input id="metronomeTimeSig" type="number" min="1" max="16" step="1" value="4">
-        <button class="step-btn" type="button" data-step-target="metronomeTimeSig" data-step="1">&plus;</button>
-      </div>
-    </div>
   </div>
 
   <div id="panel-ramp" class="panel" hidden>
@@ -2897,14 +2881,6 @@ button.beat-dot:active { transform: scale(0.94); }
       </div>
     </div>
     <div class="field-group">
-      <label for="rampTimeSig">Beats per Bar</label>
-      <div class="stepper-row">
-        <button class="step-btn" type="button" data-step-target="rampTimeSig" data-step="-1">&minus;</button>
-        <input id="rampTimeSig" type="number" min="1" max="16" step="1" value="4">
-        <button class="step-btn" type="button" data-step-target="rampTimeSig" data-step="1">&plus;</button>
-      </div>
-    </div>
-    <div class="field-group">
       <label for="rampStepBars">Step Length (bars)</label>
       <div class="stepper-row">
         <button class="step-btn" type="button" data-step-target="rampStepBars" data-step="-1">&minus;</button>
@@ -2945,14 +2921,6 @@ button.beat-dot:active { transform: scale(0.94); }
         </div>
       </div>
       <input id="practiceDeltaPercentRange" type="range" min="10" max="90" step="1" value="50">
-    </div>
-    <div class="field-group">
-      <label for="practiceTimeSig">Beats per Bar</label>
-      <div class="stepper-row">
-        <button class="step-btn" type="button" data-step-target="practiceTimeSig" data-step="-1">&minus;</button>
-        <input id="practiceTimeSig" type="number" min="1" max="16" step="1" value="4">
-        <button class="step-btn" type="button" data-step-target="practiceTimeSig" data-step="1">&plus;</button>
-      </div>
     </div>
     <div class="field-group">
       <label for="practiceBarsPerPhase">Bars per Phase</label>
@@ -3312,17 +3280,28 @@ function resolveTheme(saved, validThemes, fallback) {
 </script>
 <script>
 const DEFAULT_STATE = {
-  topBar: { subdivision: 'none', soundStyle: 'click', volume: 80, activeTab: 'metronome', theme: 'classic' },
-  metronome: { bpm: 120, percent: 100, timeSigNum: 4, accentPattern: [true, false, false, false] },
-  ramp: { startBpm: 80, stopBpm: 140, scaleMode: 'percent', scaleAmount: 2, stepBars: 4, timeSigNum: 4, accentPattern: [true, false, false, false] },
-  practice: { baseBpm: 120, deltaPercent: 50, timeSigNum: 4, barsPerPhase: 1, breakBeats: 4, accentPattern: [true, false, false, false] },
+  topBar: {
+    soundStyle: 'click', volume: 80, activeTab: 'metronome', theme: 'classic',
+    // LEVEL_* come from the LOGIC <script>, which runs before this block, so
+    // the seed states its levels by name like every other level reference.
+    pattern: {
+      beats: 4, division: 1, preset: 'none',
+      levels: [LEVEL_ACCENT, LEVEL_NORMAL, LEVEL_NORMAL, LEVEL_NORMAL],
+    },
+    patternEditorOpen: true,
+  },
+  metronome: { bpm: 120, percent: 100 },
+  ramp: { startBpm: 80, stopBpm: 140, scaleMode: 'percent', scaleAmount: 2, stepBars: 4 },
+  practice: { baseBpm: 120, deltaPercent: 50, barsPerPhase: 1, breakBeats: 4 },
 };
 
 const STORAGE_KEY = 'guitarMetronomeSettings';
-let state = deserializeSettings(localStorage.getItem(STORAGE_KEY), DEFAULT_STATE);
-['metronome', 'ramp', 'practice'].forEach((mode) => {
-  state[mode].accentPattern = resizeAccentPattern(state[mode].accentPattern, state[mode].timeSigNum);
-});
+const savedSettingsJson = localStorage.getItem(STORAGE_KEY);
+let state = deserializeSettings(savedSettingsJson, DEFAULT_STATE);
+// deserializeSettings merges section-wise, so a pre-editor save would silently
+// receive the default pattern and lose its meter and accents. Rebuild it from
+// the raw blob instead.
+state.topBar.pattern = migrateLegacyPattern(parseSavedSettings(savedSettingsJson), DEFAULT_STATE);
 
 function persistState() {
   localStorage.setItem(STORAGE_KEY, serializeSettings(state));
@@ -3341,7 +3320,6 @@ function flashClamped(inputEl) {
 }
 
 function refreshAllInputsFromState() {
-  document.getElementById('subdivision').value = state.topBar.subdivision;
   document.getElementById('soundStyle').value = state.topBar.soundStyle;
   document.getElementById('volume').value = state.topBar.volume;
   document.getElementById('volumeValue').textContent = state.topBar.volume + '%';
@@ -3350,7 +3328,6 @@ function refreshAllInputsFromState() {
   document.getElementById('metronomeBpmRange').value = state.metronome.bpm;
   document.getElementById('metronomePercent').value = state.metronome.percent;
   document.getElementById('metronomePercentRange').value = state.metronome.percent;
-  document.getElementById('metronomeTimeSig').value = state.metronome.timeSigNum;
 
   document.getElementById('rampStartBpm').value = state.ramp.startBpm;
   document.getElementById('rampStartBpmRange').value = state.ramp.startBpm;
@@ -3358,14 +3335,12 @@ function refreshAllInputsFromState() {
   document.getElementById('rampStopBpmRange').value = state.ramp.stopBpm;
   document.getElementById('rampScaleMode').value = state.ramp.scaleMode;
   document.getElementById('rampScaleAmount').value = state.ramp.scaleAmount;
-  document.getElementById('rampTimeSig').value = state.ramp.timeSigNum;
   document.getElementById('rampStepBars').value = state.ramp.stepBars;
 
   document.getElementById('practiceBaseBpm').value = state.practice.baseBpm;
   document.getElementById('practiceBaseBpmRange').value = state.practice.baseBpm;
   document.getElementById('practiceDeltaPercent').value = state.practice.deltaPercent;
   document.getElementById('practiceDeltaPercentRange').value = state.practice.deltaPercent;
-  document.getElementById('practiceTimeSig').value = state.practice.timeSigNum;
   document.getElementById('practiceBarsPerPhase').value = state.practice.barsPerPhase;
   document.getElementById('practiceBreakBeats').value = state.practice.breakBeats;
 
@@ -3403,15 +3378,10 @@ function populateThemeSelect() {
 }
 
 function bindTopBar() {
-  const subdivision = document.getElementById('subdivision');
   const soundStyle = document.getElementById('soundStyle');
   const volume = document.getElementById('volume');
   const themeSelect = document.getElementById('themeSelect');
 
-  subdivision.addEventListener('change', () => {
-    state.topBar.subdivision = subdivision.value;
-    persistState();
-  });
   soundStyle.addEventListener('change', () => {
     state.topBar.soundStyle = soundStyle.value;
     persistState();
@@ -3454,15 +3424,15 @@ function soundFrequency(style, accent) {
   return table[style] || table.click;
 }
 
-function scheduleClick(time, accent, isSubdivision) {
+function scheduleClick(time, level) {
   const ctx = ensureAudioContext();
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.connect(gain);
   gain.connect(ctx.destination);
   osc.type = state.topBar.soundStyle === 'wood' ? 'triangle' : 'sine';
-  osc.frequency.value = soundFrequency(state.topBar.soundStyle, accent);
-  const vol = (state.topBar.volume / 100) * (accent ? 1.0 : isSubdivision ? 0.4 : 0.7);
+  osc.frequency.value = soundFrequency(state.topBar.soundStyle, levelIsAccent(level));
+  const vol = (state.topBar.volume / 100) * levelGainFactor(level);
   gain.gain.setValueAtTime(0.0001, time);
   gain.gain.exponentialRampToValueAtTime(Math.max(vol, 0.0001), time + 0.001);
   gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.05);
@@ -3480,22 +3450,7 @@ function flashBeatIndicator(beatIndex, accent) {
   dot.addEventListener('transitionend', () => dot.classList.remove('pulse'), { once: true });
 }
 
-function renderBeatDots() {
-  const container = document.getElementById('beatIndicator');
-  container.removeAttribute('aria-hidden');
-  container.innerHTML = '';
-  const n = activeModeState().timeSigNum;
-  for (let i = 0; i < n; i++) {
-    const dot = document.createElement('button');
-    dot.type = 'button';
-    dot.className = 'beat-dot';
-    dot.addEventListener('click', () => toggleAccent(i));
-    container.appendChild(dot);
-  }
-  updateAccentDotStyles();
-}
-
-function renderPracticeProgressDots(count) {
+function renderDotRow(count) {
   const container = document.getElementById('beatIndicator');
   container.setAttribute('aria-hidden', 'true');
   container.innerHTML = '';
@@ -3512,26 +3467,6 @@ function renderPracticeProgressDots(count) {
   // dot — which always happens to be index 0, the first beat of every segment
   // this function is called for.
   container.offsetHeight;
-}
-
-function toggleAccent(index) {
-  const mode = activeModeState();
-  const pattern = mode.accentPattern.slice();
-  pattern[index] = !pattern[index];
-  mode.accentPattern = pattern;
-  updateAccentDotStyles();
-  persistState();
-}
-
-function updateAccentDotStyles() {
-  const dots = document.getElementById('beatIndicator').children;
-  activeModeState().accentPattern.forEach((accented, i) => {
-    const dot = dots[i];
-    if (!dot) return;
-    dot.classList.toggle('accented', accented);
-    dot.setAttribute('aria-pressed', String(accented));
-    dot.setAttribute('aria-label', `Beat ${i + 1}, ${accented ? 'accented' : 'not accented'}`);
-  });
 }
 
 let rampRuntime = null;
@@ -3609,7 +3544,7 @@ function updateHeroBpm(explicitBpm) {
 function advanceModeAfterBeat() {
   if (state.topBar.activeTab === 'ramp' && rampRuntime) {
     rampRuntime.beatsIntoStep++;
-    const beatsPerStep = barsToBeats(state.ramp.stepBars, state.ramp.timeSigNum);
+    const beatsPerStep = barsToBeats(state.ramp.stepBars, state.topBar.pattern.beats);
     if (rampRuntime.direction !== null && rampRuntime.beatsIntoStep >= beatsPerStep) {
       rampRuntime.currentBpm = computeNextRampBpm(
         rampRuntime.currentBpm, rampRuntime.direction, state.ramp.scaleMode,
@@ -3627,17 +3562,25 @@ function scheduleBeat(time) {
   const bpm = currentModeBpm();
   const beatIndex = beatIndexInBar;
   const scheduledTab = state.topBar.activeTab;
-  const modeState = state[scheduledTab];
   const isPracticeMode = scheduledTab === 'practice' && practiceRuntime;
   const isPracticeBreak = isPracticeMode && practiceRuntime.sequence[practiceRuntime.index] === 'break';
-  const accent = !isPracticeBreak && isAccentBeat(beatIndex, modeState.accentPattern);
-  scheduleClick(time, accent, false);
-
-  const subCount = subdivisionCount(state.topBar.subdivision);
-  const subInterval = subdivisionIntervalSeconds(bpm, state.topBar.subdivision);
-  for (let s = 1; s < subCount; s++) {
-    scheduleClick(time + subInterval * s, false, true);
+  const pattern = state.topBar.pattern;
+  const division = pattern.division;
+  const slotInterval = slotIntervalSeconds(bpm, division);
+  // Captured for the deferred per-beat callback below, alongside the other
+  // capture-before-advance values.
+  let beatLevel = LEVEL_NORMAL;
+  for (let s = 0; s < division; s++) {
+    // A practice break ignores the pattern entirely: one normal click on the
+    // beat, nothing in between, so a break is audibly flat against a phase.
+    const level = isPracticeBreak
+      ? (s === 0 ? LEVEL_NORMAL : LEVEL_MUTED)
+      : patternLevelAt(pattern, beatIndex, s);
+    if (s === 0) beatLevel = level;
+    if (level === LEVEL_MUTED) continue;
+    scheduleClick(time + slotInterval * s, level);
   }
+  const accent = levelIsAccent(beatLevel);
 
   const rampDisplay = (state.topBar.activeTab === 'ramp' && rampRuntime)
     ? { currentBpm: rampRuntime.currentBpm, direction: rampRuntime.direction }
@@ -3658,7 +3601,7 @@ function scheduleBeat(time) {
     if (!isPlaying || state.topBar.activeTab !== scheduledTab) return;
     if (dotCount !== null && practiceRuntime === dotRuntime
         && document.getElementById('beatIndicator').children.length !== dotCount) {
-      renderPracticeProgressDots(dotCount);
+      renderDotRow(dotCount);
     }
     flashBeatIndicator(dotIndex, accent);
     updateHeroBpm(bpm);
@@ -3666,7 +3609,7 @@ function scheduleBeat(time) {
     if (practiceSegment !== null) updatePracticeReadout(practiceSegment);
   }, Math.max(0, (time - ctx.currentTime) * 1000));
 
-  beatIndexInBar = (beatIndexInBar + 1) % modeState.timeSigNum;
+  beatIndexInBar = (beatIndexInBar + 1) % pattern.beats;
   advanceModeAfterBeat();
   nextNoteTime = time + beatIntervalSeconds(bpm);
 }
@@ -3711,14 +3654,14 @@ function startPlayback() {
     updateRampReadout();
   }
   if (state.topBar.activeTab === 'practice') {
-    const beatsPerPhase = barsToBeats(state.practice.barsPerPhase, state.practice.timeSigNum);
+    const beatsPerPhase = barsToBeats(state.practice.barsPerPhase, state.topBar.pattern.beats);
     practiceRuntime = {
       sequence: buildPracticePhaseSequence(beatsPerPhase, state.practice.breakBeats),
       beatsPerPhase: beatsPerPhase,
       breakBeats: state.practice.breakBeats,
       index: 0,
     };
-    renderPracticeProgressDots(practiceRuntime.beatsPerPhase);
+    renderDotRow(practiceRuntime.beatsPerPhase);
     updatePracticeReadout();
   }
   schedulerTick();
@@ -3731,7 +3674,7 @@ function stopPlayback() {
   clearTimeout(schedulerTimerId);
   setTransportState(false);
   updatePracticeReadout();
-  if (state.topBar.activeTab === 'practice') renderBeatDots();
+  renderDotRow(state.topBar.pattern.beats);
   const flash = document.getElementById('beatFlash');
   if (flash) flash.classList.remove('beat', 'beat-accent');
 }
@@ -3759,7 +3702,6 @@ const QUICK_SELECT_PRESETS = {
   percent: [50, 70, 85, 100, 115, 130],
   deltaPercent: [20, 35, 50, 65, 80],
   scaleAmount: [1, 2, 3, 5, 10],
-  timeSig: [2, 3, 4, 5, 6, 8],
   bars: [1, 2, 4, 8],
   breakBeats: [2, 4, 8, 16],
 };
@@ -3918,7 +3860,6 @@ function bindMetronomeTab() {
   const bpmRange = document.getElementById('metronomeBpmRange');
   const percent = document.getElementById('metronomePercent');
   const percentRange = document.getElementById('metronomePercentRange');
-  const timeSig = document.getElementById('metronomeTimeSig');
 
   function setBpm(value) {
     const clamped = clampBpm(value);
@@ -3936,29 +3877,18 @@ function bindMetronomeTab() {
     percentRange.value = state.metronome.percent;
     updateHeroBpm();
   }
-  function setTimeSig(value) {
-    const clamped = clampPositiveInt(value, DEFAULT_STATE.metronome.timeSigNum);
-    if (wasValueClamped(value, clamped, 0)) flashClamped(timeSig);
-    state.metronome.timeSigNum = clamped;
-    timeSig.value = state.metronome.timeSigNum;
-    state.metronome.accentPattern = resizeAccentPattern(state.metronome.accentPattern, state.metronome.timeSigNum);
-    renderBeatDots();
-  }
 
   bpm.addEventListener('change', () => { setBpm(bpm.value); persistState(); });
   bpmRange.addEventListener('input', () => { setBpm(bpmRange.value); persistState(); });
   percent.addEventListener('change', () => { setPercent(percent.value); persistState(); });
   percentRange.addEventListener('input', () => { setPercent(percentRange.value); persistState(); });
-  timeSig.addEventListener('change', () => { setTimeSig(timeSig.value); persistState(); });
 
   attachQuickSelect(bpm, QUICK_SELECT_PRESETS.bpm, (v) => { setBpm(v); persistState(); });
   attachQuickSelect(percent, QUICK_SELECT_PRESETS.percent, (v) => { setPercent(v); persistState(); });
-  attachQuickSelect(timeSig, QUICK_SELECT_PRESETS.timeSig, (v) => { setTimeSig(v); persistState(); });
 
   const stepperFields = {
     metronomeBpm: { input: bpm, set: setBpm },
     metronomePercent: { input: percent, set: setPercent },
-    metronomeTimeSig: { input: timeSig, set: setTimeSig },
   };
 
   document.getElementById('panel-metronome').querySelectorAll('.step-btn').forEach((btn) => {
@@ -4019,7 +3949,7 @@ function switchTab(tabName) {
   document.getElementById('panel-practice').hidden = tabName !== 'practice';
   document.getElementById('rampReadout').hidden = tabName !== 'ramp';
   document.getElementById('practiceReadout').hidden = tabName !== 'practice';
-  renderBeatDots();
+  renderDotRow(state.topBar.pattern.beats);
   updateHeroBpm();
 }
 
@@ -4034,7 +3964,6 @@ function bindRampTab() {
   const stopBpmRange = document.getElementById('rampStopBpmRange');
   const scaleMode = document.getElementById('rampScaleMode');
   const scaleAmount = document.getElementById('rampScaleAmount');
-  const timeSig = document.getElementById('rampTimeSig');
   const stepBars = document.getElementById('rampStepBars');
 
   function setStartBpm(value) {
@@ -4065,14 +3994,6 @@ function bindRampTab() {
     state.ramp.stepBars = clamped;
     stepBars.value = state.ramp.stepBars;
   }
-  function setTimeSig(value) {
-    const clamped = clampPositiveInt(value, DEFAULT_STATE.ramp.timeSigNum);
-    if (wasValueClamped(value, clamped, 0)) flashClamped(timeSig);
-    state.ramp.timeSigNum = clamped;
-    timeSig.value = state.ramp.timeSigNum;
-    state.ramp.accentPattern = resizeAccentPattern(state.ramp.accentPattern, state.ramp.timeSigNum);
-    renderBeatDots();
-  }
 
   startBpm.addEventListener('change', () => { setStartBpm(startBpm.value); persistState(); });
   startBpmRange.addEventListener('input', () => { setStartBpm(startBpmRange.value); persistState(); });
@@ -4080,20 +4001,17 @@ function bindRampTab() {
   stopBpmRange.addEventListener('input', () => { setStopBpm(stopBpmRange.value); persistState(); });
   scaleMode.addEventListener('change', () => { state.ramp.scaleMode = scaleMode.value; persistState(); });
   scaleAmount.addEventListener('change', () => { setScaleAmount(scaleAmount.value); persistState(); });
-  timeSig.addEventListener('change', () => { setTimeSig(timeSig.value); persistState(); });
   stepBars.addEventListener('change', () => { setStepBars(stepBars.value); persistState(); });
 
   attachQuickSelect(startBpm, QUICK_SELECT_PRESETS.bpm, (v) => { setStartBpm(v); persistState(); });
   attachQuickSelect(stopBpm, QUICK_SELECT_PRESETS.bpm, (v) => { setStopBpm(v); persistState(); });
   attachQuickSelect(scaleAmount, QUICK_SELECT_PRESETS.scaleAmount, (v) => { setScaleAmount(v); persistState(); });
-  attachQuickSelect(timeSig, QUICK_SELECT_PRESETS.timeSig, (v) => { setTimeSig(v); persistState(); });
   attachQuickSelect(stepBars, QUICK_SELECT_PRESETS.bars, (v) => { setStepBars(v); persistState(); });
 
   const stepperFields = {
     rampStartBpm: { input: startBpm, set: setStartBpm },
     rampStopBpm: { input: stopBpm, set: setStopBpm },
     rampScaleAmount: { input: scaleAmount, set: setScaleAmount },
-    rampTimeSig: { input: timeSig, set: setTimeSig },
     rampStepBars: { input: stepBars, set: setStepBars },
   };
 
@@ -4114,7 +4032,6 @@ function bindPracticeTab() {
   const baseBpmRange = document.getElementById('practiceBaseBpmRange');
   const deltaPercent = document.getElementById('practiceDeltaPercent');
   const deltaPercentRange = document.getElementById('practiceDeltaPercentRange');
-  const timeSig = document.getElementById('practiceTimeSig');
   const barsPerPhase = document.getElementById('practiceBarsPerPhase');
   const breakBeats = document.getElementById('practiceBreakBeats');
 
@@ -4134,14 +4051,6 @@ function bindPracticeTab() {
     deltaPercent.value = state.practice.deltaPercent;
     deltaPercentRange.value = state.practice.deltaPercent;
   }
-  function setTimeSig(value) {
-    const clamped = clampPositiveInt(value, DEFAULT_STATE.practice.timeSigNum);
-    if (wasValueClamped(value, clamped, 0)) flashClamped(timeSig);
-    state.practice.timeSigNum = clamped;
-    timeSig.value = state.practice.timeSigNum;
-    state.practice.accentPattern = resizeAccentPattern(state.practice.accentPattern, state.practice.timeSigNum);
-    if (!isPlaying) renderBeatDots();
-  }
   function setBarsPerPhase(value) {
     const clamped = clampPositiveInt(value, DEFAULT_STATE.practice.barsPerPhase);
     if (wasValueClamped(value, clamped, 0)) flashClamped(barsPerPhase);
@@ -4159,20 +4068,17 @@ function bindPracticeTab() {
   baseBpmRange.addEventListener('input', () => { setBaseBpm(baseBpmRange.value); persistState(); });
   deltaPercent.addEventListener('change', () => { setDeltaPercent(deltaPercent.value); persistState(); });
   deltaPercentRange.addEventListener('input', () => { setDeltaPercent(deltaPercentRange.value); persistState(); });
-  timeSig.addEventListener('change', () => { setTimeSig(timeSig.value); persistState(); });
   barsPerPhase.addEventListener('change', () => { setBarsPerPhase(barsPerPhase.value); persistState(); });
   breakBeats.addEventListener('change', () => { setBreakBeats(breakBeats.value); persistState(); });
 
   attachQuickSelect(baseBpm, QUICK_SELECT_PRESETS.bpm, (v) => { setBaseBpm(v); persistState(); });
   attachQuickSelect(deltaPercent, QUICK_SELECT_PRESETS.deltaPercent, (v) => { setDeltaPercent(v); persistState(); });
-  attachQuickSelect(timeSig, QUICK_SELECT_PRESETS.timeSig, (v) => { setTimeSig(v); persistState(); });
   attachQuickSelect(barsPerPhase, QUICK_SELECT_PRESETS.bars, (v) => { setBarsPerPhase(v); persistState(); });
   attachQuickSelect(breakBeats, QUICK_SELECT_PRESETS.breakBeats, (v) => { setBreakBeats(v); persistState(); });
 
   const stepperFields = {
     practiceBaseBpm: { input: baseBpm, set: setBaseBpm },
     practiceDeltaPercent: { input: deltaPercent, set: setDeltaPercent },
-    practiceTimeSig: { input: timeSig, set: setTimeSig },
     practiceBarsPerPhase: { input: barsPerPhase, set: setBarsPerPhase },
     practiceBreakBeats: { input: breakBeats, set: setBreakBeats },
   };
