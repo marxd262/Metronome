@@ -741,12 +741,23 @@ In `index.html`, insert immediately after the closing `</div>` of `#heroZone` an
       </div>
       <div id="patternMeta">
         <span id="patternSlotCount">4 slots</span>
-        <button id="patternToggle" type="button" aria-expanded="true" aria-controls="patternGrid">Hide</button>
+        <button id="patternToggle" type="button" aria-expanded="true" aria-controls="patternBody">Hide</button>
       </div>
     </div>
-    <div id="patternGrid" role="group" aria-label="Rhythm pattern slots"></div>
+    <div id="patternBody">
+      <div id="patternGrid" role="group" aria-label="Rhythm pattern slots"></div>
+      <div id="patternLegend">
+        <span><span class="pattern-swatch level-muted" aria-hidden="true"></span>Muted</span>
+        <span><span class="pattern-swatch level-quiet" aria-hidden="true"></span>Quiet</span>
+        <span><span class="pattern-swatch level-normal" aria-hidden="true"></span>Normal</span>
+        <span><span class="pattern-swatch level-accent" aria-hidden="true"></span>Accented</span>
+        <span id="patternHint">Click a slot to cycle forward, shift-click to go back</span>
+      </div>
+    </div>
   </section>
 ```
+
+The legend lives inside `#patternBody` so it collapses with the grid rather than floating under a hidden editor. Without it, four fill sizes are an undiscoverable code — this row is the only thing that teaches them.
 
 - [ ] **Step 2: Add the styles**
 
@@ -758,7 +769,12 @@ Find the line `@layer themes {` (the first occurrence, around line 589). Insert 
      spacing scale for the same reason --quick-select-popup-* is: these are
      dimensions of one specific control, not gaps between things. */
   #patternEditor {
-    --pattern-slot-size: 22px;
+    /* 26px, not the 44px touch guideline. Adjacent grid cells cannot reach 44
+       without their hit areas overlapping their neighbours, which trades a
+       small target for a wrong one. 26px plus a 4px gap is the largest target
+       that stays honest; the keyboard path added in Task 8 is the real
+       accommodation for anyone who cannot hit it. */
+    --pattern-slot-size: 26px;
     --pattern-slot-size-compact: 10px;
     --pattern-grid-max-height: 40vh;
 
@@ -803,10 +819,15 @@ Find the line `@layer themes {` (the first occurrence, around line 589). Insert 
 
   #patternToggle:hover { color: var(--text); border-color: var(--accent); }
 
+  /* An author display value beats the UA sheet's [hidden] { display: none },
+     so the collapse silently does nothing without this rule. The project
+     already hit this once: see .panel[hidden]. */
+  #patternBody[hidden] { display: none; }
+
   #patternGrid {
     display: flex;
     flex-direction: column;
-    gap: var(--space-2xs);
+    gap: 4px;
     margin-top: var(--space-sm);
     max-height: var(--pattern-grid-max-height);
     overflow: auto;
@@ -815,7 +836,7 @@ Find the line `@layer themes {` (the first occurrence, around line 589). Insert 
   .pattern-row {
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 4px;
     border-radius: var(--radius);
     padding: 2px;
   }
@@ -841,7 +862,11 @@ Find the line `@layer themes {` (the first occurrence, around line 589). Insert 
     height: var(--pattern-slot-size);
     padding: 0;
     border: 1px solid var(--divider);
-    border-radius: var(--radius);
+    /* Deliberately NOT var(--radius): each theme scales that token for inputs
+       and buttons, from 3px to 10px, and 10px on a 26px cell is a pill. A cell
+       radius wants to stay a cell radius, and varying it against the section's
+       --radius-panel is the point. */
+    border-radius: 3px;
     background: var(--overlay);
     cursor: pointer;
     position: relative;
@@ -868,24 +893,28 @@ Find the line `@layer themes {` (the first occurrence, around line 589). Insert 
     opacity: 0.5;
   }
 
-  .pattern-slot.level-quiet::after  { width: 5px;  height: 5px;  background: var(--text-dim); }
-  .pattern-slot.level-normal::after { width: 10px; height: 10px; background: var(--text); }
+  .pattern-slot.level-quiet::after  { width: 6px;  height: 6px;  background: var(--text-dim); }
+  .pattern-slot.level-normal::after { width: 11px; height: 11px; background: var(--text); }
 
-  .pattern-slot.level-accent {
-    border-color: var(--accent);
-    background: var(--accent-glow);
-  }
-  .pattern-slot.level-accent::after { width: 14px; height: 14px; background: var(--accent); }
+  /* Border and fill carry the accent, and no third signal. An earlier draft
+     also tinted the background with --accent-glow, which Pulse Engine defines
+     at 55% accent — three accent cues on one 26px cell, blocking nearly solid
+     and spending the accent budget on a control that repeats up to 4096 times. */
+  .pattern-slot.level-accent { border-color: var(--accent); }
+  .pattern-slot.level-accent::after { width: 16px; height: 16px; background: var(--accent); }
 
   .pattern-slot.beat-start { border-color: var(--text-dim); }
 
   .pattern-slot:hover { border-color: var(--accent); }
-  .pattern-slot:active { transform: scale(0.92); }
 
   /* Playhead. Applied and removed from an animation frame, never from a
      transitionend listener, so it cannot get stuck the way .pulse once did. */
-  .pattern-slot.playhead { box-shadow: 0 0 0 2px var(--accent), var(--accent-glow) 0 0 12px; }
-  .pattern-row.playhead-row { background: var(--overlay); }
+  .pattern-slot.playhead { box-shadow: 0 0 0 2px var(--accent), 0 0 12px var(--accent-glow); }
+
+  /* Not var(--overlay): in Classic that token is the slot's own background and
+     the section's border colour, all three #2a2a33, so the row highlight would
+     be invisible against the very cells it is meant to group. */
+  .pattern-row.playhead-row { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 
   /* While playing, everything but the sounding slot recedes so the playhead
      reads at a glance. The grid stays fully interactive — this is a reading
@@ -905,6 +934,54 @@ Find the line `@layer themes {` (the first occurrence, around line 589). Insert 
   #patternGrid.compact .pattern-slot.level-normal::after { width: 5px; height: 5px; }
   #patternGrid.compact .pattern-slot.level-accent::after { width: 6px; height: 6px; }
   #patternGrid.compact .pattern-beat-number { width: 1.1rem; }
+
+  /* The legend is the only thing that teaches four fill sizes. It sits inside
+     the collapsible body so it disappears with the grid it explains. */
+  #patternLegend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-top: var(--space-sm);
+    padding-top: var(--space-xs);
+    border-top: 1px solid var(--divider);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+
+  #patternLegend > span {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+  }
+
+  #patternHint { margin-left: auto; color: var(--text-dim); }
+
+  .pattern-swatch {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    border: 1px solid var(--divider);
+    border-radius: 3px;
+    background: var(--overlay);
+    position: relative;
+  }
+
+  .pattern-swatch::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    border-radius: 2px;
+    width: 0;
+    height: 0;
+  }
+
+  .pattern-swatch.level-muted { background: transparent; border-style: dashed; opacity: 0.5; }
+  .pattern-swatch.level-quiet::after  { width: 4px; height: 4px; background: var(--text-dim); }
+  .pattern-swatch.level-normal::after { width: 7px; height: 7px; background: var(--text); }
+  .pattern-swatch.level-accent { border-color: var(--accent); }
+  .pattern-swatch.level-accent::after { width: 9px; height: 9px; background: var(--accent); }
 }
 ```
 
@@ -915,7 +992,7 @@ Expected: PASS. `tests/themes.test.js` must not regress; the new rules touch no 
 
 - [ ] **Step 4: Verify in a browser**
 
-Open `index.html`. Expected: an empty bordered section with Preset, Beats, Division and a Hide button, sitting between the hero and the Metronome panel. The controls do nothing yet. Check all five themes render it legibly (`--panel`, `--divider`, `--accent` are all in the required token set, so each theme supplies its own).
+Open `index.html`. Expected: a bordered section with Preset, Beats, Division, a Hide button and a legend row, sitting between the hero and the Metronome panel. The grid between header and legend is empty and the controls do nothing yet. Check all five themes render it legibly (`--panel`, `--divider`, `--accent` are all in the required token set, so each theme supplies its own), and that the four legend swatches are distinguishable in each — that row is the only thing that teaches the fill sizes.
 
 - [ ] **Step 5: Commit**
 
@@ -1250,6 +1327,11 @@ const PATTERN_COMPACT_THRESHOLD = 128;
 const LEVEL_CLASSES = ['level-muted', 'level-quiet', 'level-normal', 'level-accent'];
 const LEVEL_NAMES = ['muted', 'quiet', 'normal', 'accented'];
 
+// Roving tabindex anchor. Exactly one slot is tabbable at a time, so the grid
+// is a single Tab stop however large it grows — without this, reaching the
+// Start button from the editor means tabbing through up to 4096 buttons.
+let patternFocusIndex = 0;
+
 function applySlotStyle(el, level, division) {
   const index = Number(el.dataset.index);
   for (let i = 0; i < LEVEL_CLASSES.length; i++) {
@@ -1274,6 +1356,9 @@ function renderPatternGrid() {
   const grid = document.getElementById('patternGrid');
   const pattern = state.topBar.pattern;
   const fragment = document.createDocumentFragment();
+  const total = patternSlotCount(pattern.beats, pattern.division);
+  if (patternFocusIndex >= total) patternFocusIndex = total - 1;
+  if (patternFocusIndex < 0) patternFocusIndex = 0;
 
   for (let beat = 0; beat < pattern.beats; beat++) {
     const row = document.createElement('div');
@@ -1289,6 +1374,7 @@ function renderPatternGrid() {
       el.type = 'button';
       el.className = slot === 0 ? 'pattern-slot beat-start' : 'pattern-slot';
       el.dataset.index = String(index);
+      el.tabIndex = index === patternFocusIndex ? 0 : -1;
       applySlotStyle(el, patternLevelAt(pattern, beat, slot), pattern.division);
       row.appendChild(el);
     }
@@ -1307,7 +1393,9 @@ function renderPatternGrid() {
 function applyPatternEditorOpen() {
   const open = state.topBar.patternEditorOpen !== false;
   const toggle = document.getElementById('patternToggle');
-  document.getElementById('patternGrid').hidden = !open;
+  // #patternBody, not #patternGrid — the legend collapses with the grid it
+  // explains, and the CSS carries the matching [hidden] rule.
+  document.getElementById('patternBody').hidden = !open;
   toggle.setAttribute('aria-expanded', String(open));
   toggle.textContent = open ? 'Hide' : 'Show';
 }
@@ -1398,18 +1486,67 @@ function bindPatternEditor() {
     persistState();
   });
 
-  // One delegated listener for every slot, however many there are.
-  grid.addEventListener('click', (e) => {
-    const el = e.target.closest('.pattern-slot');
-    if (!el) return;
+  function cycleSlot(el, direction) {
     const pattern = state.topBar.pattern;
     const index = Number(el.dataset.index);
-    const next = cyclePatternLevel(pattern.levels[index], e.shiftKey ? -1 : 1);
+    const next = cyclePatternLevel(pattern.levels[index], direction);
     pattern.levels[index] = next;
     pattern.preset = 'custom';
     preset.value = 'custom';
+    patternFocusIndex = index;
     applySlotStyle(el, next, pattern.division);
     persistState();
+  }
+
+  // Moves the single tabbable slot. Focusing inside the scroll box scrolls it,
+  // which is wanted here — unlike the playhead, which deliberately never
+  // scrolls, because this movement is the user's own and that one is not.
+  function moveSlotFocus(index) {
+    const target = grid.querySelector(`.pattern-slot[data-index="${index}"]`);
+    if (!target) return;
+    const current = grid.querySelector('.pattern-slot[tabindex="0"]');
+    if (current) current.tabIndex = -1;
+    target.tabIndex = 0;
+    target.focus();
+    patternFocusIndex = index;
+  }
+
+  // Two delegated listeners for every slot, however many there are.
+  grid.addEventListener('click', (e) => {
+    const el = e.target.closest('.pattern-slot');
+    if (!el) return;
+    cycleSlot(el, e.shiftKey ? -1 : 1);
+  });
+
+  grid.addEventListener('keydown', (e) => {
+    const el = e.target.closest('.pattern-slot');
+    if (!el) return;
+    const pattern = state.topBar.pattern;
+    const total = patternSlotCount(pattern.beats, pattern.division);
+    const index = Number(el.dataset.index);
+    const rowStart = Math.floor(index / pattern.division) * pattern.division;
+
+    // Plain Enter/Space fires a click and cycles forward for free. Shift plus
+    // either is the keyboard equivalent of shift-click; preventDefault here
+    // also suppresses the click that Space would otherwise fire on keyup, so
+    // the level moves one step, not two.
+    if ((e.key === 'Enter' || e.key === ' ') && e.shiftKey) {
+      e.preventDefault();
+      cycleSlot(el, -1);
+      return;
+    }
+
+    let next = null;
+    if (e.key === 'ArrowRight') next = Math.min(total - 1, index + 1);
+    else if (e.key === 'ArrowLeft') next = Math.max(0, index - 1);
+    else if (e.key === 'ArrowDown') next = Math.min(total - 1, index + pattern.division);
+    else if (e.key === 'ArrowUp') next = Math.max(0, index - pattern.division);
+    else if (e.key === 'Home') next = rowStart;
+    else if (e.key === 'End') next = Math.min(total - 1, rowStart + pattern.division - 1);
+    else return;
+
+    e.preventDefault();
+    moveSlotFocus(next);
   });
 }
 
@@ -1440,8 +1577,9 @@ Expected: PASS.
 3. Click a slot: it cycles muted, quiet, normal, accented; shift-click reverses; the preset label flips to Custom.
 4. Type `7` into Division: septuplets, in time with the beat. Type `100`: clamps to 64 and flashes.
 5. Change Beats from 4 to 6: the first four rows keep their levels, rows 5 and 6 arrive with a normal downbeat.
-6. Hide and Show fold the grid; reload and the state is remembered.
-7. Set 64 beats and 64 division. Note whether the grid build stutters and how long it takes. If it is unusable, stop and report — the fallback is capping the rendered grid while leaving audio uncapped.
+6. Hide and Show fold the grid **and the legend**; reload and the state is remembered.
+7. Keyboard, with 8 beats and 4 division: Tab reaches the grid in **one** stop, arrows move within it in both axes, Home and End jump to the ends of a beat's row, Enter cycles a level forward, Shift plus Enter cycles it back by exactly one step, and the next Tab leaves the grid for the Start button rather than walking 32 slots.
+8. Set 64 beats and 64 division. Confirm Tab still crosses the grid in one stop. Note whether the grid build stutters and how long it takes. If it is unusable, stop and report — the fallback is capping the rendered grid while leaving audio uncapped.
 
 - [ ] **Step 6: Commit**
 

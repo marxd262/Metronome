@@ -123,6 +123,26 @@ readable without colour vision:
 The first slot of each beat is marked so beat boundaries stay visible
 at high divisions.
 
+A legend row sits below the grid, inside the collapsible body, naming the
+four levels beside their swatches. Four fill sizes are otherwise an
+undiscoverable code; this row is the only thing that teaches them.
+
+### Keyboard, and why the grid is one Tab stop
+
+The grid uses a roving tabindex: exactly one slot is tabbable at a time,
+so Tab enters the grid once and leaves it once, whatever its size.
+Without this, reaching the Start button from the editor would mean
+tabbing through up to 4096 buttons — a keyboard trap created purely by
+volume. Arrow keys move within the grid in both axes, `Home` and `End`
+jump to the ends of a beat's row, `Enter` and `Space` cycle a level
+forward, and `Shift` with either cycles it back, the keyboard equivalent
+of shift-click.
+
+Slots are 26px against a 44px touch guideline. Adjacent grid cells
+cannot reach 44px without their hit areas overlapping their neighbours,
+which trades a small target for a wrong one, so the size stays honest
+and the keyboard path above is the accommodation.
+
 ### How levels sound
 
 | Level    | Gain                        | Pitch            |
@@ -482,8 +502,11 @@ In `tests/themes.test.js`:
 12. All five themes: the editor is legible in each, the clamp flash
     still fires on the beats and division fields, and beat dots still
     pulse without sticking.
-13. Keyboard: the grid is reachable and operable, slot labels announce
-    beat, position and level, and slots stay operable while playing
-    without the moving playhead producing any announcements.
+13. Keyboard: Tab crosses the whole grid in one stop at every size,
+    arrows move within it, Home and End jump to a beat's row ends,
+    Enter cycles forward and Shift plus Enter cycles back by one step,
+    slot labels announce beat, position and level, and slots stay
+    operable while playing without the moving playhead producing any
+    announcements.
 14. Render cost at 64×64: note whether the grid build stutters. If it
     does, cap the rendered grid size and leave the audio uncapped.
