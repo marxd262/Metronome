@@ -138,3 +138,24 @@ test('no theme overrides the locked .beat-dot transition', () => {
       `"${rule.selector}" declares transition on .beat-dot; the components layer owns it`);
   }
 });
+
+test('every .pattern-slot rule lives inside a cascade layer', () => {
+  // An unlayered rule outranks all layered ones regardless of specificity, so
+  // a stray editor rule outside @layer would silently beat all five themes.
+  let depth = 0;
+  let insideLayer = false;
+  for (let i = 0; i < STYLE.length; i++) {
+    if (STYLE.startsWith('@layer', i) && STYLE.indexOf('{', i) !== -1) {
+      const header = STYLE.slice(i, STYLE.indexOf('{', i));
+      if (!header.includes(';')) insideLayer = true;
+    }
+    if (STYLE[i] === '{') depth++;
+    else if (STYLE[i] === '}') {
+      depth--;
+      if (depth === 0) insideLayer = false;
+    }
+    if (STYLE.startsWith('.pattern-slot', i)) {
+      assert.ok(insideLayer, `.pattern-slot rule at offset ${i} is outside every @layer block`);
+    }
+  }
+});

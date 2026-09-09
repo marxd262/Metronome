@@ -547,15 +547,6 @@ input[type="range"]::-moz-range-track {
 
 .beat-dot.pulse       { background: var(--dot-pulse-bg); transition-duration: var(--dot-strike); }
 .beat-dot.pulse.accent{ background: var(--dot-accent-bg); }
-.beat-dot.accented    { border-color: var(--accent-beat); }
-
-/* Hover/active only ever match the accent-editor <button> dots, never the
-   non-interactive practice-progress <div> dots rendered during Practice
-   playback — so the row correctly stops signaling "clickable" the moment
-   it stops being clickable. */
-button.beat-dot:hover { filter: brightness(1.25); }
-button.beat-dot:not(.accented):hover { border-color: var(--accent); }
-button.beat-dot:active { transform: scale(0.94); }
 
 /* Group dots in 4s so long rows (practice phases up to 64 beats) stay countable at a glance */
 #beatIndicator .beat-dot:nth-child(4n):not(:last-child) {
@@ -1051,19 +1042,6 @@ button.beat-dot:active { transform: scale(0.94); }
   box-shadow: var(--bevel);
 }
 
-:root[data-theme="pulse-engine"] .beat-dot.accented {
-  /* This themes-layer background always outranks the components-layer
-     .beat-dot.pulse background (var(--dot-pulse-bg)) — layer order beats
-     specificity — so adding .pulse to an accented dot never changes
-     background-color here. The transitionend the components-layer JS
-     waits on (see CLAUDE.md's beat-dot pulse contract) only fires because
-     .beat-dot.pulse below also changes box-shadow and transform. Do not
-     remove those without keeping some other transitioned property
-     changing on .pulse for an accented dot, or the class sticks forever. */
-  background: var(--overlay);
-  box-shadow: inset 0 3px 0 var(--accent-beat), var(--bevel);
-}
-
 :root[data-theme="pulse-engine"] .beat-dot.pulse {
   box-shadow: 0 0 20px -2px var(--accent-glow), var(--bevel);
   transform: scaleY(1.1);
@@ -1335,7 +1313,6 @@ button.beat-dot:active { transform: scale(0.94); }
   /* theme-private */
   --ink:        #f4f4f7;
   --rule-faint: #1a1a1f;
-  --dot-accent-idle: #4c4c57;
 
   /* .step-btn:hover / .quick-select-toggle:hover / .quick-select-option:hover
      (@layer components) read the shared --neutral-850 primitive directly for
@@ -1481,19 +1458,6 @@ button.beat-dot:active { transform: scale(0.94); }
   /* geometry only — the transition shorthand stays in the components layer */
 }
 
-:root[data-theme="kinetic-type"] .beat-dot.accented {
-  /* This themes-layer background always outranks the components-layer
-     .beat-dot.pulse background (var(--dot-pulse-bg)) — layer order beats
-     specificity — so adding .pulse to an accented dot never changes
-     background-color here. The transitionend the components-layer JS
-     waits on (see CLAUDE.md's beat-dot pulse contract) only fires because
-     .beat-dot.pulse below also changes box-shadow. Do not remove that
-     without keeping some other transitioned property changing on .pulse
-     for an accented dot, or the class sticks forever. */
-  height: 54px;
-  background: var(--dot-accent-idle);
-}
-
 :root[data-theme="kinetic-type"] .beat-dot.pulse {
   box-shadow: 0 0 16px 0 var(--accent-glow);
 }
@@ -1501,9 +1465,6 @@ button.beat-dot:active { transform: scale(0.94); }
 :root[data-theme="kinetic-type"] .beat-dot.pulse.accent {
   box-shadow: 0 0 18px 0 color-mix(in srgb, var(--accent-beat) 45%, transparent);
 }
-
-:root[data-theme="kinetic-type"] button.beat-dot:hover { background: var(--text-muted); }
-:root[data-theme="kinetic-type"] button.beat-dot:active { transform: scaleY(0.9); transform-origin: bottom; }
 
 :root[data-theme="kinetic-type"] .readout {
   font-weight: var(--font-weight-semibold);
@@ -1897,9 +1858,6 @@ button.beat-dot:active { transform: scale(0.94); }
   transform: scale(1.3);
 }
 
-:root[data-theme="pulse-field"] button.beat-dot:hover { background: var(--text-dim); }
-:root[data-theme="pulse-field"] button.beat-dot:active { transform: scale(0.9); }
-
 :root[data-theme="pulse-field"] #beatIndicator .beat-dot:nth-child(4n):not(:last-child) { margin-right: 12px; }
 
 :root[data-theme="pulse-field"] .readout {
@@ -2152,10 +2110,9 @@ button.beat-dot:active { transform: scale(0.94); }
      their hover surface — see Global Constraints. This theme's step/tap/
      quick-select-toggle trio gets its own explicit accent-colored hover rule
      below instead (not an edit to the locked component rule), so only the
-     popup option's hover — and this theme's own button.beat-dot:hover, which
-     reuses the same token rather than repeat the literal hex — actually end
-     up driven through it here; overridden to match the source experiment's
-     --neutral-800. --neutral-900 is a second, unused-elsewhere base
+     popup option's hover actually ends up driven through it here;
+     overridden to match the source experiment's --neutral-800.
+     --neutral-900 is a second, unused-elsewhere base
      primitive repurposed here (matching the source experiment's own
      --neutral-900) for the tab hover/active surface, which needs a
      different, darker tint. */
@@ -2334,17 +2291,6 @@ button.beat-dot:active { transform: scale(0.94); }
   /* geometry only — the transition shorthand stays in the components layer */
 }
 
-/* border-color restated even though the shared .beat-dot.accented rule
-   already sets it: this theme's own .beat-dot base rule above uses a
-   `border` shorthand, and being in the same (themes) layer as this rule,
-   ordering/specificity resolves it fine here — but the shared component
-   rule for :not(.accented):hover below needs the same treatment since THAT
-   one lives in an earlier layer and would otherwise be beaten outright. */
-:root[data-theme="grid-console"] .beat-dot.accented {
-  border-color: var(--accent-beat);
-  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--accent-beat) 22%, transparent);
-}
-
 :root[data-theme="grid-console"] .beat-dot.pulse {
   border-color: var(--accent);
   box-shadow: 0 0 14px -2px var(--accent-glow);
@@ -2354,15 +2300,6 @@ button.beat-dot:active { transform: scale(0.94); }
   border-color: var(--accent-beat);
   box-shadow: 0 0 16px -2px color-mix(in srgb, var(--accent-beat) 45%, transparent);
 }
-
-:root[data-theme="grid-console"] button.beat-dot:hover { background: var(--neutral-850); }
-
-/* Restated even though the value matches the shared component rule: this
-   theme's own .beat-dot base rule (above) uses a `border` shorthand in the
-   themes layer, which beats the shared component-layer rule below on layer
-   order alone regardless of specificity, so without restating it here every
-   dot's border would incorrectly stay --divider on hover. */
-:root[data-theme="grid-console"] button.beat-dot:not(.accented):hover { border-color: var(--accent); }
 
 :root[data-theme="grid-console"] #beatIndicator .beat-dot:nth-child(4n):not(:last-child) { margin-right: 9px; }
 
@@ -2962,17 +2899,8 @@ function computeEffectiveBpm(bpm, percent) {
   return clampBpm(bpm * (percent / 100));
 }
 
-function subdivisionCount(subdivision) {
-  const table = { none: 1, eighths: 2, triplets: 3, sixteenths: 4 };
-  return table[subdivision] || 1;
-}
-
 function beatIntervalSeconds(bpm) {
   return 60 / bpm;
-}
-
-function subdivisionIntervalSeconds(bpm, subdivision) {
-  return beatIntervalSeconds(bpm) / subdivisionCount(subdivision);
 }
 
 // Slot levels. Ordered so cyclePatternLevel can step through them with modulo
@@ -3151,10 +3079,6 @@ function findPlayheadEntry(entries, now, runId, generation) {
   return best;
 }
 
-function isAccentBeat(beatIndexInBar, accentPattern) {
-  return Boolean(accentPattern && accentPattern[beatIndexInBar]);
-}
-
 function bpmFromTapTimestamps(timestamps) {
   if (!Array.isArray(timestamps) || timestamps.length < 2) return null;
   const diffs = [];
@@ -3245,14 +3169,6 @@ function wasValueClamped(rawValue, clampedValue, decimals) {
   return rounded !== clampedValue;
 }
 
-function resizeAccentPattern(pattern, newLength) {
-  const result = [];
-  for (let i = 0; i < newLength; i++) {
-    result.push(Boolean(pattern && pattern[i]));
-  }
-  return result;
-}
-
 function practiceSegmentIndex(sequenceIndex, beatsPerPhase, breakBeats) {
   if (sequenceIndex < beatsPerPhase) return 0;
   if (sequenceIndex < beatsPerPhase + breakBeats) return 1;
@@ -3305,10 +3221,6 @@ state.topBar.pattern = migrateLegacyPattern(parseSavedSettings(savedSettingsJson
 
 function persistState() {
   localStorage.setItem(STORAGE_KEY, serializeSettings(state));
-}
-
-function activeModeState() {
-  return state[state.topBar.activeTab];
 }
 
 const CLAMP_FLASH_MS = 500;

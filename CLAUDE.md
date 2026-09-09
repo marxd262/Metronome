@@ -35,13 +35,16 @@ required. There is no lint step.
    `// LOGIC-END` comments. This holds every pure calculation function
    (BPM/percent clamping, ramp stepping math, practice phase-sequence and
    segment/position math, tap-tempo averaging, settings
-   serialize/deserialize, accent-pattern resizing). Every function here
-   must stay a pure function of its arguments — no reads of `state`, the
-   DOM, or module-level variables — because `tests/loadLogic.js` extracts
-   this exact block via regex and evals it standalone under Node to run
-   `tests/logic.test.js` against it. **Any new calculation logic belongs
-   here, written pure, with tests added to `tests/logic.test.js`.** This
-   is what makes a single-file, build-free app unit-testable at all.
+   serialize/deserialize, and the whole rhythm-pattern model: slot
+   indexing, level cycling, preset and level building, pattern resize,
+   normalize and legacy migration, and the playhead entry scan). Every
+   function here must stay a pure function of its arguments — no reads
+   of `state`, the DOM, or module-level variables — because
+   `tests/loadLogic.js` extracts this exact block via regex and evals it
+   standalone under Node to run `tests/logic.test.js` against it. **Any
+   new calculation logic belongs here, written pure, with tests added to
+   `tests/logic.test.js`.** This is what makes a single-file, build-free
+   app unit-testable at all.
 2. **The app block** — DOM wiring, the `state` object, `localStorage`
    persistence, and the Web Audio scheduler. This is untested by design
    (no DOM/Web Audio available under plain Node) and is verified manually
@@ -50,7 +53,9 @@ required. There is no lint step.
 ### State and persistence
 
 `state` is a single object (shape defined by `DEFAULT_STATE`) with one
-section per concern: `topBar` (shared settings + the accent pattern),
+section per concern: `topBar` (shared settings + `pattern`, the one
+rhythm pattern all three modes play: `{ beats, division, preset, levels }`,
+where `levels` is a flat `beats * division` array of `LEVEL_*` values),
 `metronome`, `ramp`, `practice`. It's loaded via `deserializeSettings`,
 which merges each *section* of a saved `localStorage` blob over
 `DEFAULT_STATE` independently — so adding a new field to a section is
@@ -60,6 +65,22 @@ unrecognized/removed field from an old save is silently carried over as
 an unused property rather than stripped; this has been the accepted
 behavior across several past field removals (see
 `docs/superpowers/specs/`), not a bug.
+
+`topBar.pattern` is the one deliberate exception to that merge. A save
+written before the pattern editor existed has no `topBar.pattern` at all,
+so the section merge would hand it the default and silently discard the
+user's meter and accents. Instead, immediately after `deserializeSettings`,
+the load path overwrites `state.topBar.pattern` with
+`migrateLegacyPattern(parseSavedSettings(savedSettingsJson),
+DEFAULT_STATE)`, which rebuilds the pattern from the old
+`topBar.subdivision` plus the Metronome tab's `timeSigNum` and
+`accentPattern` — Metronome, because three per-mode patterns collapsed
+into one and it's the tab a user is likeliest to have set. Note that only
+the branch finding an already-migrated `topBar.pattern`, and the two
+missing/malformed fallbacks, route through `normalizePattern`; the
+legacy-rebuild branch builds its result directly, from parts it has
+already clamped itself. Anything else new still gets the plain merge —
+don't add a second migration unless a field genuinely cannot survive one.
 
 ### The Web Audio lookahead scheduler and the capture-before-advance pattern
 
@@ -86,6 +107,16 @@ runtime reference>` — object-identity-checking against a captured
 reference, not just a boolean, is what closes the "user stopped and
 started a new run before the stale callback fired" race).
 
+Per-**beat** feedback (hero dots, hero BPM, ramp/practice readouts) uses
+the capture-before-advance deferred callback described above. Per-**slot**
+feedback is the pattern grid's playhead and only that: it uses a ring
+buffer of scheduled slot times plus one `requestAnimationFrame` loop,
+rejecting records whose `runId` or `patternGeneration` is stale. The two
+must not be mixed. Anything a beat-rate callback can serve belongs in the
+first mechanism; the ring buffer exists because timer callbacks queue
+rather than skip, and at high divisions that drags the highlight behind
+the audio.
+
 ### Mode dispatch
 
 `currentModeBpm()` and `advanceModeAfterBeat()` branch on
@@ -95,20 +126,24 @@ state (built fresh in `startPlayback()`, **never explicitly nulled** —
 code that reads them must itself check `isPlaying`/`activeTab` rather
 than relying on nullness to mean "not running").
 
-The accent pattern (`state.topBar.accentPattern`) applies during all
-three modes; Practice's break beats are the one deliberate exception
-(always forced unaccented, regardless of the pattern).
+The shared pattern (`state.topBar.pattern`) plays during all three
+modes; Practice's break beats are the one deliberate exception —
+`scheduleBeat` ignores the pattern for them entirely and emits a single
+normal-level click on the beat with every slot between it muted, so a
+break stays audibly flat against a phase.
 
-### The beat-dot row is mode- and state-dependent
+### The beat-dot row is a position indicator and nothing else
 
-`#beatIndicator`'s dots serve different purposes depending on context:
-on Metronome/Ramp, or on Practice while stopped, they're the clickable
-accent-pattern editor (`renderBeatDots`). While Practice is playing, the
-same element becomes a non-interactive phase-progress indicator
-(`renderPracticeProgressDots`), resized per phase and `aria-hidden`. Any
-code path that can render into `#beatIndicator` needs to know which mode
-it's in — `bindTopBar`'s time-signature handler had to be fixed once
-already for calling the wrong renderer while Practice was running.
+`#beatIndicator` used to serve two purposes — a clickable accent-pattern
+editor on Metronome/Ramp, and a non-interactive phase-progress row during
+Practice playback — which meant every code path rendering into it had to
+know which mode it was in, and `bindTopBar`'s time-signature handler had to
+be fixed once for calling the wrong renderer. Accent editing now lives in
+the pattern editor, so the row has one job and one renderer,
+`renderDotRow(count)`: `<div>` dots, always `aria-hidden`, never clickable.
+Call it with `state.topBar.pattern.beats` for bar position, or with
+`practiceRuntime.beatsPerPhase` for phase progress. Its forced synchronous
+reflow is load-bearing and is commented in place — do not remove it.
 
 ### Quick-select value dropdown
 
@@ -140,7 +175,11 @@ themes' animations can never collide.
 `base` holds resets, element defaults, the primitive tokens
 (`--neutral-*`, `--accent-500`, `--red-500`), and shared motion/spacing
 scales. `components` holds every component rule, written against custom
-properties rather than raw values. `themes` holds one
+properties rather than raw values — including the whole rhythm pattern
+editor (`#patternGrid`, `.pattern-row`, `.pattern-slot` and its
+level/`beat-start`/`playhead` states), which no theme overrides at all: it
+reads only tokens the themes already define, so it adds no new entries to
+`REQUIRED_TOKENS`. `themes` holds one
 `:root[data-theme="…"]` token block per theme, plus that theme's
 structural overrides (hero element order, content max-width, and, for
 Grid Console, the page's column count). `motion` holds
@@ -172,7 +211,14 @@ break without realizing it:
    `transitionend` listener; if adding `.pulse` doesn't change a
    transitioned property, that event never fires and the class sticks on
    the dot permanently. `tests/themes.test.js` enforces this, including
-   the longhand forms.
+   the longhand forms. The pattern editor's slots deliberately do *not*
+   carry the `.beat-dot` class — a comment on `.pattern-slot` says so —
+   because a slot is a different control with a different lifecycle, so
+   this contract does not apply to it. Its playhead highlight is added and
+   removed by the animation-frame loop rather than by a `transitionend`
+   listener, so it cannot get stuck the way `.pulse` can.
+   `tests/themes.test.js` separately asserts that every `.pattern-slot`
+   rule sits inside a cascade layer.
 2. **Every theme must define all 23 required tokens** — the list lives
    in the `REQUIRED_TOKENS` array at the top of `tests/themes.test.js`
    (read it there rather than here, so the two can't drift apart), and
@@ -185,7 +231,7 @@ break without realizing it:
    `components`, even a low-specificity shorthand in a theme rule (say
    `border: 1px solid X` on an input) silently overrides a *more
    specific* shared state rule sitting in `components` — `.clamped`,
-   `:focus`, `.beat-dot.accented`, `button.beat-dot:not(.accented):hover`,
+   `:focus`, `.beat-dot.pulse`, `.pattern-slot:hover`,
    `.step-btn.step-5`. A theme that reaches for such a shorthand has to
    restate those states itself. This isn't cosmetic: the clamp flash, for
    instance, is how an out-of-range value announces itself. Relatedly,

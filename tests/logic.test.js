@@ -31,37 +31,10 @@ test('computeEffectiveBpm scales bpm by percent and clamps', () => {
   assert.equal(computeEffectiveBpm(300, 150), 400);
 });
 
-test('subdivisionCount maps subdivision names to click counts', () => {
-  const { subdivisionCount } = loadLogic(['subdivisionCount']);
-  assert.equal(subdivisionCount('none'), 1);
-  assert.equal(subdivisionCount('eighths'), 2);
-  assert.equal(subdivisionCount('triplets'), 3);
-  assert.equal(subdivisionCount('sixteenths'), 4);
-});
-
 test('beatIntervalSeconds converts bpm to seconds per beat', () => {
   const { beatIntervalSeconds } = loadLogic(['beatIntervalSeconds']);
   assert.equal(beatIntervalSeconds(60), 1);
   assert.equal(beatIntervalSeconds(120), 0.5);
-});
-
-test('subdivisionIntervalSeconds divides the beat interval', () => {
-  const { subdivisionIntervalSeconds } = loadLogic(['subdivisionIntervalSeconds']);
-  assert.equal(subdivisionIntervalSeconds(60, 'eighths'), 0.5);
-  assert.equal(subdivisionIntervalSeconds(60, 'none'), 1);
-});
-
-test('isAccentBeat reads the accent flag for that beat position from the pattern', () => {
-  const { isAccentBeat } = loadLogic(['isAccentBeat']);
-  assert.equal(isAccentBeat(0, [true, false, true, false]), true);
-  assert.equal(isAccentBeat(1, [true, false, true, false]), false);
-  assert.equal(isAccentBeat(2, [true, false, true, false]), true);
-});
-
-test('isAccentBeat returns false for an out-of-range index or a missing pattern', () => {
-  const { isAccentBeat } = loadLogic(['isAccentBeat']);
-  assert.equal(isAccentBeat(5, [true, false]), false);
-  assert.equal(isAccentBeat(0, undefined), false);
 });
 
 test('bpmFromTapTimestamps returns null with fewer than 2 taps', () => {
@@ -219,21 +192,6 @@ test('wasValueClamped respects the decimals argument', () => {
   const { wasValueClamped } = loadLogic(['wasValueClamped']);
   assert.equal(wasValueClamped(2.3, 2.3, 1), false);
   assert.equal(wasValueClamped(-1, 0.1, 1), true);
-});
-
-test('resizeAccentPattern preserves existing values and pads with false when growing', () => {
-  const { resizeAccentPattern } = loadLogic(['resizeAccentPattern']);
-  assert.deepEqual(resizeAccentPattern([true, false, false, false], 6), [true, false, false, false, false, false]);
-});
-
-test('resizeAccentPattern truncates when shrinking', () => {
-  const { resizeAccentPattern } = loadLogic(['resizeAccentPattern']);
-  assert.deepEqual(resizeAccentPattern([true, false, true, true], 2), [true, false]);
-});
-
-test('resizeAccentPattern treats a missing pattern as all-false', () => {
-  const { resizeAccentPattern } = loadLogic(['resizeAccentPattern']);
-  assert.deepEqual(resizeAccentPattern(undefined, 3), [false, false, false]);
 });
 
 test('practiceSegmentIndex maps sequence position to the slow/break/fast/break segments', () => {
