@@ -3323,6 +3323,11 @@ function refreshAllInputsFromState() {
   document.getElementById('soundStyle').value = state.topBar.soundStyle;
   document.getElementById('volume').value = state.topBar.volume;
   document.getElementById('volumeValue').textContent = state.topBar.volume + '%';
+  document.getElementById('patternPreset').value = state.topBar.pattern.preset;
+  document.getElementById('patternBeats').value = state.topBar.pattern.beats;
+  document.getElementById('patternDivision').value = state.topBar.pattern.division;
+  applyPatternEditorOpen();
+  renderPatternGrid();
 
   document.getElementById('metronomeBpm').value = state.metronome.bpm;
   document.getElementById('metronomeBpmRange').value = state.metronome.bpm;
@@ -3472,6 +3477,11 @@ function renderDotRow(count) {
 let rampRuntime = null;
 
 let practiceRuntime = null;
+
+// Bumped whenever beats or division changes, so playhead records scheduled
+// against the previous grid are rejected rather than highlighting a slot index
+// that now means something else. Read by the playhead frame loop.
+let patternGeneration = 0;
 
 function currentModeBpm() {
   if (state.topBar.activeTab === 'ramp') {
@@ -3704,6 +3714,8 @@ const QUICK_SELECT_PRESETS = {
   scaleAmount: [1, 2, 3, 5, 10],
   bars: [1, 2, 4, 8],
   breakBeats: [2, 4, 8, 16],
+  patternBeats: [2, 3, 4, 5, 6, 7, 8, 12, 16],
+  patternDivision: [1, 2, 3, 4, 5, 6, 8],
 };
 
 let quickSelectIdCounter = 0;
@@ -3854,6 +3866,238 @@ function attachQuickSelect(inputEl, presets, onSelect) {
     }
   });
 }
+
+// Above this many slots the grid switches to compact sizing. Chosen so a
+// conventional pattern (up to 16 beats of sixteenths) stays full size.
+const PATTERN_COMPACT_THRESHOLD = 128;
+
+const LEVEL_CLASSES = ['level-muted', 'level-quiet', 'level-normal', 'level-accent'];
+const LEVEL_NAMES = ['muted', 'quiet', 'normal', 'accented'];
+
+// Roving tabindex anchor. Exactly one slot is tabbable at a time, so the grid
+// is a single Tab stop however large it grows — without this, reaching the
+// Start button from the editor means tabbing through up to 4096 buttons.
+let patternFocusIndex = 0;
+
+function applySlotStyle(el, level, division) {
+  const index = Number(el.dataset.index);
+  for (let i = 0; i < LEVEL_CLASSES.length; i++) {
+    el.classList.toggle(LEVEL_CLASSES[i], i === level);
+  }
+  const beat = Math.floor(index / division) + 1;
+  const slot = (index % division) + 1;
+  el.setAttribute('aria-label', `Beat ${beat}, slot ${slot} of ${division}, ${LEVEL_NAMES[level]}`);
+}
+
+function updatePatternSlotCountLabel() {
+  const pattern = state.topBar.pattern;
+  const count = patternSlotCount(pattern.beats, pattern.division);
+  document.getElementById('patternSlotCount').textContent =
+    count === 1 ? '1 slot' : `${count} slots`;
+}
+
+// Builds the whole grid in one fragment. Click handling is delegated to the
+// container in bindPatternEditor, so this attaches no per-slot listeners —
+// 4096 elements is tractable, 4096 listeners is not.
+function renderPatternGrid() {
+  const grid = document.getElementById('patternGrid');
+  const pattern = state.topBar.pattern;
+  const fragment = document.createDocumentFragment();
+  const total = patternSlotCount(pattern.beats, pattern.division);
+  if (patternFocusIndex >= total) patternFocusIndex = total - 1;
+  if (patternFocusIndex < 0) patternFocusIndex = 0;
+
+  for (let beat = 0; beat < pattern.beats; beat++) {
+    const row = document.createElement('div');
+    row.className = 'pattern-row';
+    const number = document.createElement('span');
+    number.className = 'pattern-beat-number';
+    number.setAttribute('aria-hidden', 'true');
+    number.textContent = String(beat + 1);
+    row.appendChild(number);
+    for (let slot = 0; slot < pattern.division; slot++) {
+      const index = patternSlotIndex(beat, slot, pattern.division);
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = slot === 0 ? 'pattern-slot beat-start' : 'pattern-slot';
+      el.dataset.index = String(index);
+      el.tabIndex = index === patternFocusIndex ? 0 : -1;
+      applySlotStyle(el, patternLevelAt(pattern, beat, slot), pattern.division);
+      row.appendChild(el);
+    }
+    fragment.appendChild(row);
+  }
+
+  grid.classList.toggle(
+    'compact',
+    patternSlotCount(pattern.beats, pattern.division) > PATTERN_COMPACT_THRESHOLD
+  );
+  grid.innerHTML = '';
+  grid.appendChild(fragment);
+  updatePatternSlotCountLabel();
+}
+
+function applyPatternEditorOpen() {
+  const open = state.topBar.patternEditorOpen !== false;
+  const toggle = document.getElementById('patternToggle');
+  // #patternBody, not #patternGrid — the legend collapses with the grid it
+  // explains, and the CSS carries the matching [hidden] rule.
+  document.getElementById('patternBody').hidden = !open;
+  toggle.setAttribute('aria-expanded', String(open));
+  toggle.textContent = open ? 'Hide' : 'Show';
+}
+
+function bindPatternEditor() {
+  const preset = document.getElementById('patternPreset');
+  const beats = document.getElementById('patternBeats');
+  const division = document.getElementById('patternDivision');
+  const grid = document.getElementById('patternGrid');
+  const toggle = document.getElementById('patternToggle');
+
+  // Resizing the grid invalidates in-flight playhead records and can leave the
+  // bar counter past the new end, so both are corrected here in one place.
+  function afterPatternResize() {
+    const pattern = state.topBar.pattern;
+    patternGeneration++;
+    beatIndexInBar = beatIndexInBar % pattern.beats;
+    renderPatternGrid();
+    // Never re-render the dot row mid-playback: during Practice it is showing
+    // phase progress, not bar position, and would be silently replaced.
+    if (!isPlaying) renderDotRow(pattern.beats);
+  }
+
+  function setBeats(value) {
+    const pattern = state.topBar.pattern;
+    const clamped = clampPatternBeats(value);
+    if (wasValueClamped(value, clamped, 0)) flashClamped(beats);
+    pattern.levels = resizePatternLevels(
+      pattern.levels, pattern.beats, pattern.division, clamped, pattern.division
+    );
+    pattern.beats = clamped;
+    beats.value = clamped;
+    afterPatternResize();
+  }
+
+  function setDivision(value) {
+    const pattern = state.topBar.pattern;
+    const clamped = clampPatternDivision(value);
+    if (wasValueClamped(value, clamped, 0)) flashClamped(division);
+    pattern.levels = resizePatternLevels(
+      pattern.levels, pattern.beats, pattern.division, pattern.beats, clamped
+    );
+    pattern.division = clamped;
+    pattern.preset = presetForDivision(clamped);
+    division.value = clamped;
+    preset.value = pattern.preset;
+    afterPatternResize();
+  }
+
+  function setPreset(name) {
+    const target = divisionForPreset(name);
+    if (target === null) {
+      // "Custom" is a label the app applies, never a choice that changes the
+      // grid; snap the control back to whatever the pattern actually is.
+      preset.value = state.topBar.pattern.preset;
+      return;
+    }
+    const pattern = state.topBar.pattern;
+    pattern.division = target;
+    pattern.preset = name;
+    pattern.levels = buildPresetLevels(pattern.beats, target);
+    division.value = target;
+    afterPatternResize();
+  }
+
+  preset.addEventListener('change', () => { setPreset(preset.value); persistState(); });
+  beats.addEventListener('change', () => { setBeats(beats.value); persistState(); });
+  division.addEventListener('change', () => { setDivision(division.value); persistState(); });
+
+  attachQuickSelect(beats, QUICK_SELECT_PRESETS.patternBeats, (v) => { setBeats(v); persistState(); });
+  attachQuickSelect(division, QUICK_SELECT_PRESETS.patternDivision, (v) => { setDivision(v); persistState(); });
+
+  const stepperFields = {
+    patternBeats: { input: beats, set: setBeats },
+    patternDivision: { input: division, set: setDivision },
+  };
+  document.getElementById('patternHeader').querySelectorAll('.step-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const field = stepperFields[btn.dataset.stepTarget];
+      field.set(Number(field.input.value) + Number(btn.dataset.step));
+      persistState();
+    });
+  });
+
+  toggle.addEventListener('click', () => {
+    state.topBar.patternEditorOpen = !(state.topBar.patternEditorOpen !== false);
+    applyPatternEditorOpen();
+    persistState();
+  });
+
+  function cycleSlot(el, direction) {
+    const pattern = state.topBar.pattern;
+    const index = Number(el.dataset.index);
+    const next = cyclePatternLevel(pattern.levels[index], direction);
+    pattern.levels[index] = next;
+    pattern.preset = 'custom';
+    preset.value = 'custom';
+    patternFocusIndex = index;
+    applySlotStyle(el, next, pattern.division);
+    persistState();
+  }
+
+  // Moves the single tabbable slot. Focusing inside the scroll box scrolls it,
+  // which is wanted here — unlike the playhead, which deliberately never
+  // scrolls, because this movement is the user's own and that one is not.
+  function moveSlotFocus(index) {
+    const target = grid.querySelector(`.pattern-slot[data-index="${index}"]`);
+    if (!target) return;
+    const current = grid.querySelector('.pattern-slot[tabindex="0"]');
+    if (current) current.tabIndex = -1;
+    target.tabIndex = 0;
+    target.focus();
+    patternFocusIndex = index;
+  }
+
+  // Two delegated listeners for every slot, however many there are.
+  grid.addEventListener('click', (e) => {
+    const el = e.target.closest('.pattern-slot');
+    if (!el) return;
+    cycleSlot(el, e.shiftKey ? -1 : 1);
+  });
+
+  grid.addEventListener('keydown', (e) => {
+    const el = e.target.closest('.pattern-slot');
+    if (!el) return;
+    const pattern = state.topBar.pattern;
+    const total = patternSlotCount(pattern.beats, pattern.division);
+    const index = Number(el.dataset.index);
+    const rowStart = Math.floor(index / pattern.division) * pattern.division;
+
+    // Plain Enter/Space fires a click and cycles forward for free. Shift plus
+    // either is the keyboard equivalent of shift-click; preventDefault here
+    // also suppresses the click that Space would otherwise fire on keyup, so
+    // the level moves one step, not two.
+    if ((e.key === 'Enter' || e.key === ' ') && e.shiftKey) {
+      e.preventDefault();
+      cycleSlot(el, -1);
+      return;
+    }
+
+    let next = null;
+    if (e.key === 'ArrowRight') next = Math.min(total - 1, index + 1);
+    else if (e.key === 'ArrowLeft') next = Math.max(0, index - 1);
+    else if (e.key === 'ArrowDown') next = Math.min(total - 1, index + pattern.division);
+    else if (e.key === 'ArrowUp') next = Math.max(0, index - pattern.division);
+    else if (e.key === 'Home') next = rowStart;
+    else if (e.key === 'End') next = Math.min(total - 1, rowStart + pattern.division - 1);
+    else return;
+
+    e.preventDefault();
+    moveSlotFocus(next);
+  });
+}
+
+bindPatternEditor();
 
 function bindMetronomeTab() {
   const bpm = document.getElementById('metronomeBpm');
