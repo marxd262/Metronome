@@ -2854,6 +2854,54 @@ function resizePatternLevels(levels, oldBeats, oldDivision, newBeats, newDivisio
   return result;
 }
 
+function parseSavedSettings(json) {
+  try {
+    const parsed = JSON.parse(json);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Guards against a hand-edited or truncated save: clamps both dimensions, then
+// forces the level array to exactly beats * division entries.
+function normalizePattern(pattern) {
+  const source = pattern && typeof pattern === 'object' ? pattern : {};
+  const beats = clampPatternBeats(source.beats);
+  const division = clampPatternDivision(source.division);
+  const levels = resizePatternLevels(
+    Array.isArray(source.levels) ? source.levels : null,
+    beats, division, beats, division
+  );
+  const preset = typeof source.preset === 'string' ? source.preset : presetForDivision(division);
+  return { beats: beats, division: division, preset: preset, levels: levels };
+}
+
+// Runs once per load. A save written before the pattern editor existed has its
+// meter and accents rebuilt from the old fields rather than being reset to the
+// default — Metronome is the source, because three per-mode patterns are
+// collapsing into one and Metronome is the tab a user is likeliest to have set.
+function migrateLegacyPattern(parsed, defaults) {
+  const fallback = normalizePattern(defaults.topBar.pattern);
+  if (!parsed || typeof parsed !== 'object') return fallback;
+  const topBar = parsed.topBar;
+  if (!topBar || typeof topBar !== 'object') return fallback;
+  if (topBar.pattern && typeof topBar.pattern === 'object') return normalizePattern(topBar.pattern);
+
+  const division = divisionForPreset(topBar.subdivision) || 1;
+  const legacy = parsed.metronome && typeof parsed.metronome === 'object' ? parsed.metronome : {};
+  const beats = clampPatternBeats(legacy.timeSigNum);
+  const accents = Array.isArray(legacy.accentPattern) ? legacy.accentPattern : [];
+  const levels = [];
+  for (let beat = 0; beat < beats; beat++) {
+    for (let slot = 0; slot < division; slot++) {
+      if (slot !== 0) levels.push(LEVEL_QUIET);
+      else levels.push(accents[beat] ? LEVEL_ACCENT : LEVEL_NORMAL);
+    }
+  }
+  return { beats: beats, division: division, preset: presetForDivision(division), levels: levels };
+}
+
 function isAccentBeat(beatIndexInBar, accentPattern) {
   return Boolean(accentPattern && accentPattern[beatIndexInBar]);
 }

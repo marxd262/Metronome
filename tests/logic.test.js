@@ -469,3 +469,80 @@ test('resizePatternLevels fills defaults for a null or short source', () => {
   assert.deepEqual(resizePatternLevels(null, 0, 0, 2, 2), [3, 1, 2, 1]);
   assert.deepEqual(resizePatternLevels([3], 2, 1, 2, 1), [3, 2]);
 });
+
+const PATTERN_DEFAULTS = {
+  topBar: { pattern: { beats: 4, division: 1, preset: 'none', levels: [3, 2, 2, 2] } },
+};
+
+test('parseSavedSettings returns the object or null, never throws', () => {
+  const { parseSavedSettings } = loadLogic(['parseSavedSettings']);
+  assert.deepEqual(parseSavedSettings('{"a":1}'), { a: 1 });
+  assert.equal(parseSavedSettings('not json'), null);
+  assert.equal(parseSavedSettings(null), null);
+  assert.equal(parseSavedSettings('42'), null);
+});
+
+test('normalizePattern clamps and re-sizes the level array to match', () => {
+  const { normalizePattern } = loadLogic(['normalizePattern']);
+  const result = normalizePattern({ beats: 200, division: 0, preset: 'none', levels: [3] });
+  assert.equal(result.beats, 64);
+  assert.equal(result.division, 1);
+  assert.equal(result.levels.length, 64);
+  assert.equal(result.levels[0], 3);
+  assert.equal(result.levels[1], 2);
+});
+
+test('normalizePattern fills a preset name when one is missing', () => {
+  const { normalizePattern } = loadLogic(['normalizePattern']);
+  assert.equal(normalizePattern({ beats: 4, division: 3, levels: [] }).preset, 'triplets');
+  assert.equal(normalizePattern({ beats: 4, division: 7, levels: [] }).preset, 'custom');
+});
+
+test('migrateLegacyPattern returns the default for null or junk input', () => {
+  const { migrateLegacyPattern } = loadLogic(['migrateLegacyPattern']);
+  assert.deepEqual(migrateLegacyPattern(null, PATTERN_DEFAULTS), PATTERN_DEFAULTS.topBar.pattern);
+  assert.deepEqual(migrateLegacyPattern(42, PATTERN_DEFAULTS), PATTERN_DEFAULTS.topBar.pattern);
+  assert.deepEqual(migrateLegacyPattern({}, PATTERN_DEFAULTS), PATTERN_DEFAULTS.topBar.pattern);
+});
+
+test('migrateLegacyPattern passes an already-migrated save through untouched', () => {
+  const { migrateLegacyPattern } = loadLogic(['migrateLegacyPattern']);
+  const saved = { topBar: { pattern: { beats: 3, division: 2, preset: 'eighths', levels: [3, 0, 2, 1, 2, 1] } } };
+  assert.deepEqual(migrateLegacyPattern(saved, PATTERN_DEFAULTS), saved.topBar.pattern);
+});
+
+test('migrateLegacyPattern maps each legacy subdivision name to a division', () => {
+  const { migrateLegacyPattern } = loadLogic(['migrateLegacyPattern']);
+  const cases = { none: 1, eighths: 2, triplets: 3, sixteenths: 4 };
+  for (const [name, division] of Object.entries(cases)) {
+    const saved = {
+      topBar: { subdivision: name },
+      metronome: { timeSigNum: 4, accentPattern: [true, false, false, false] },
+    };
+    const result = migrateLegacyPattern(saved, PATTERN_DEFAULTS);
+    assert.equal(result.division, division);
+    assert.equal(result.preset, name);
+    assert.equal(result.levels.length, 4 * division);
+  }
+});
+
+test('migrateLegacyPattern carries the metronome beats and accents across', () => {
+  const { migrateLegacyPattern } = loadLogic(['migrateLegacyPattern']);
+  const saved = {
+    topBar: { subdivision: 'eighths' },
+    metronome: { timeSigNum: 3, accentPattern: [true, false, true] },
+    ramp: { timeSigNum: 7, accentPattern: [true, true, true, true, true, true, true] },
+  };
+  const result = migrateLegacyPattern(saved, PATTERN_DEFAULTS);
+  assert.equal(result.beats, 3);
+  //  beat 1 accented, beat 2 normal, beat 3 accented; every off-slot quiet
+  assert.deepEqual(result.levels, [3, 1, 2, 1, 3, 1]);
+});
+
+test('migrateLegacyPattern falls back when the metronome section is missing', () => {
+  const { migrateLegacyPattern } = loadLogic(['migrateLegacyPattern']);
+  const result = migrateLegacyPattern({ topBar: { subdivision: 'triplets' } }, PATTERN_DEFAULTS);
+  assert.equal(result.beats, 4);
+  assert.equal(result.division, 3);
+  assert.equal(result.levels.length, 12);
+});
