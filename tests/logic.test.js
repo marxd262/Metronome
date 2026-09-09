@@ -402,3 +402,34 @@ test('patternLevelAt reads a slot and defaults a missing one to normal', () => {
   assert.equal(patternLevelAt(pattern, 1, 1), 0);
   assert.equal(patternLevelAt({ beats: 1, division: 1, levels: [] }, 0, 0), 2);
 });
+
+test('divisionForPreset maps the four preset names to divisions', () => {
+  const { divisionForPreset } = loadLogic(['divisionForPreset']);
+  assert.equal(divisionForPreset('none'), 1);
+  assert.equal(divisionForPreset('eighths'), 2);
+  assert.equal(divisionForPreset('triplets'), 3);
+  assert.equal(divisionForPreset('sixteenths'), 4);
+  assert.equal(divisionForPreset('custom'), null);
+  assert.equal(divisionForPreset('nonsense'), null);
+});
+
+test('presetForDivision round-trips the four presets and calls the rest custom', () => {
+  const { presetForDivision, divisionForPreset } = loadLogic(['presetForDivision', 'divisionForPreset']);
+  for (const name of ['none', 'eighths', 'triplets', 'sixteenths']) {
+    assert.equal(presetForDivision(divisionForPreset(name)), name);
+  }
+  assert.equal(presetForDivision(5), 'custom');
+  assert.equal(presetForDivision(64), 'custom');
+});
+
+test('buildPresetLevels accents only the first slot of the first beat', () => {
+  const { buildPresetLevels } = loadLogic(['buildPresetLevels']);
+  assert.deepEqual(buildPresetLevels(4, 1), [3, 2, 2, 2]);
+  assert.deepEqual(buildPresetLevels(2, 3), [3, 1, 1, 2, 1, 1]);
+});
+
+test('buildPresetLevels produces exactly beats times division entries', () => {
+  const { buildPresetLevels } = loadLogic(['buildPresetLevels']);
+  assert.equal(buildPresetLevels(7, 5).length, 35);
+  assert.equal(buildPresetLevels(7, 5).filter((l) => l === 3).length, 1);
+});

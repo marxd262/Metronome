@@ -2803,6 +2803,40 @@ function patternLevelAt(pattern, beat, slot) {
   return Number.isInteger(raw) ? raw : LEVEL_NORMAL;
 }
 
+// The four presets are the same roster the removed Subdivision <select>
+// offered. They set division only; beats is never a preset's business.
+const PATTERN_PRESETS = [
+  { name: 'none',       division: 1 },
+  { name: 'eighths',    division: 2 },
+  { name: 'triplets',   division: 3 },
+  { name: 'sixteenths', division: 4 },
+];
+
+function divisionForPreset(preset) {
+  const found = PATTERN_PRESETS.find((entry) => entry.name === preset);
+  return found ? found.division : null;
+}
+
+function presetForDivision(division) {
+  const found = PATTERN_PRESETS.find((entry) => entry.division === division);
+  return found ? found.name : 'custom';
+}
+
+function defaultLevelForSlot(beat, slot) {
+  if (slot !== 0) return LEVEL_QUIET;
+  return beat === 0 ? LEVEL_ACCENT : LEVEL_NORMAL;
+}
+
+function buildPresetLevels(beats, division) {
+  const levels = [];
+  for (let beat = 0; beat < beats; beat++) {
+    for (let slot = 0; slot < division; slot++) {
+      levels.push(defaultLevelForSlot(beat, slot));
+    }
+  }
+  return levels;
+}
+
 function isAccentBeat(beatIndexInBar, accentPattern) {
   return Boolean(accentPattern && accentPattern[beatIndexInBar]);
 }
