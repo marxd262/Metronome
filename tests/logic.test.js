@@ -546,3 +546,49 @@ test('migrateLegacyPattern falls back when the metronome section is missing', ()
   assert.equal(result.division, 3);
   assert.equal(result.levels.length, 12);
 });
+
+function entry(time, slotIndex, runId, generation) {
+  return { time: time, slotIndex: slotIndex, runId: runId, generation: generation };
+}
+
+test('findPlayheadEntry returns the newest entry already in the past', () => {
+  const { findPlayheadEntry } = loadLogic(['findPlayheadEntry']);
+  const ring = [entry(1.0, 0, 1, 1), entry(1.5, 1, 1, 1), entry(2.0, 2, 1, 1)];
+  assert.equal(findPlayheadEntry(ring, 1.7, 1, 1).slotIndex, 1);
+  assert.equal(findPlayheadEntry(ring, 9.0, 1, 1).slotIndex, 2);
+});
+
+test('findPlayheadEntry returns null when every entry is still in the future', () => {
+  const { findPlayheadEntry } = loadLogic(['findPlayheadEntry']);
+  const ring = [entry(5.0, 0, 1, 1), entry(5.5, 1, 1, 1)];
+  assert.equal(findPlayheadEntry(ring, 1.0, 1, 1), null);
+});
+
+test('findPlayheadEntry ignores entries from a previous playback run', () => {
+  const { findPlayheadEntry } = loadLogic(['findPlayheadEntry']);
+  const ring = [entry(1.0, 7, 1, 1), entry(1.5, 2, 2, 1)];
+  assert.equal(findPlayheadEntry(ring, 9.0, 2, 1).slotIndex, 2);
+  assert.equal(findPlayheadEntry(ring, 1.2, 2, 1), null);
+});
+
+test('findPlayheadEntry ignores entries from a stale pattern generation', () => {
+  const { findPlayheadEntry } = loadLogic(['findPlayheadEntry']);
+  const ring = [entry(1.0, 40, 1, 1), entry(1.5, 3, 1, 2)];
+  assert.equal(findPlayheadEntry(ring, 9.0, 1, 2).slotIndex, 3);
+  assert.equal(findPlayheadEntry(ring, 1.2, 1, 2), null);
+});
+
+test('findPlayheadEntry survives empty slots, an empty ring and junk input', () => {
+  const { findPlayheadEntry } = loadLogic(['findPlayheadEntry']);
+  assert.equal(findPlayheadEntry([null, null], 1.0, 1, 1), null);
+  assert.equal(findPlayheadEntry([], 1.0, 1, 1), null);
+  assert.equal(findPlayheadEntry(null, 1.0, 1, 1), null);
+});
+
+test('findPlayheadEntry reads a wrapped ring by time, not by position', () => {
+  const { findPlayheadEntry } = loadLogic(['findPlayheadEntry']);
+  //  Newest write landed at index 0 after wrapping past the end.
+  const ring = [entry(3.0, 3, 1, 1), entry(1.0, 1, 1, 1), entry(2.0, 2, 1, 1)];
+  assert.equal(findPlayheadEntry(ring, 3.5, 1, 1).slotIndex, 3);
+  assert.equal(findPlayheadEntry(ring, 2.5, 1, 1).slotIndex, 2);
+});

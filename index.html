@@ -2902,6 +2902,22 @@ function migrateLegacyPattern(parsed, defaults) {
   return { beats: beats, division: division, preset: presetForDivision(division), levels: levels };
 }
 
+// Scans by time rather than by ring position, so a wrapped buffer needs no
+// bookkeeping. Rejecting stale runId/generation here is what stops a highlight
+// surviving a stop-then-start or a mid-playback grid resize.
+function findPlayheadEntry(entries, now, runId, generation) {
+  if (!Array.isArray(entries)) return null;
+  let best = null;
+  for (let i = 0; i < entries.length; i++) {
+    const candidate = entries[i];
+    if (!candidate) continue;
+    if (candidate.runId !== runId || candidate.generation !== generation) continue;
+    if (candidate.time > now) continue;
+    if (best === null || candidate.time > best.time) best = candidate;
+  }
+  return best;
+}
+
 function isAccentBeat(beatIndexInBar, accentPattern) {
   return Boolean(accentPattern && accentPattern[beatIndexInBar]);
 }
