@@ -159,6 +159,43 @@ state (built fresh in `startPlayback()`, **never explicitly nulled** —
 code that reads them must itself check `isPlaying`/`activeTab` rather
 than relying on nullness to mean "not running").
 
+A ramp's direction is **derived, never stored**. `advanceRampRuntime`
+(pure, in the LOGIC block) recomputes it every beat from the live tempo
+against `state.ramp.stopBpm`, and returns a fresh runtime the caller
+assigns. It used to be captured at `startPlayback()` and set to `null`
+on arrival, which meant a ramp holding at its target could never move
+again — raising Stop BPM mid-run did nothing at all. Deriving it is what
+lets the target move under a running ramp, whether it is moved by the
+field, the steppers, the quick-select, or the Up/Down keys. Reassigning
+`rampRuntime` wholesale is safe because nothing identity-checks it the
+way the Practice deferred callback checks `practiceRuntime`; every reader
+takes fields off whatever the variable currently points at.
+
+### Global keyboard shortcuts
+
+Two, both on one document-level `keydown`: Space toggles the transport,
+and Up/Down move the active mode's main tempo by 1, or by 5 with Shift.
+
+They share a single guard, `globalShortcutAllowed()`, and that sharing is
+the contract — a second copy is how the two keys drift and one starts
+stealing a keystroke another control needs. It stands aside for three
+contexts: a focused `INPUT`/`SELECT`/`TEXTAREA`, where both keys already
+mean something native; an open quick-select popup, which owns the arrows
+for its listbox; and anything inside `#patternEditor`, whose slots are
+`<button>`s the tag check cannot see and whose own handler owns Space
+*and* the arrows for moving between slots. `tests/resilience.test.js`
+asserts the guard exists and that the pattern-editor exemption is spelled
+out exactly once.
+
+Which field Up/Down moves comes from `mainBpmField`, a module-level map
+each `bind*Tab()` fills with the same `{ input, set }` shape its stepper
+buttons already use — so clamping, the out-of-range flash, the paired
+range slider and the hero readout all come along for free. Metronome
+registers its BPM and Practice its Base BPM. **Ramp registers Stop, not
+Start:** mid-run Start is spent, having seeded the runtime at launch,
+while Stop is read live on every step, so Stop is the one a player can
+usefully move while playing.
+
 The shared pattern (`state.topBar.pattern`) plays during all three
 modes; Practice's break beats are the one deliberate exception —
 `scheduleBeat` ignores the pattern for them entirely and emits a single

@@ -79,6 +79,53 @@ test('computeNextRampBpm holds at stop when direction is null', () => {
   assert.equal(computeNextRampBpm(100, null, 'fixed', 5, 100), 100);
 });
 
+const RAMP = { stopBpm: 140, scaleMode: 'fixed', scaleAmount: 5 };
+
+test('advanceRampRuntime only counts beats until a step is due', () => {
+  const { advanceRampRuntime } = loadLogic(['advanceRampRuntime']);
+  const next = advanceRampRuntime({ currentBpm: 100, beatsIntoStep: 0 }, RAMP, 4);
+  assert.deepEqual(next, { currentBpm: 100, direction: 'up', beatsIntoStep: 1 });
+});
+
+test('advanceRampRuntime steps the tempo and resets the count when one is due', () => {
+  const { advanceRampRuntime } = loadLogic(['advanceRampRuntime']);
+  const next = advanceRampRuntime({ currentBpm: 100, beatsIntoStep: 3 }, RAMP, 4);
+  assert.deepEqual(next, { currentBpm: 105, direction: 'up', beatsIntoStep: 0 });
+});
+
+test('advanceRampRuntime holds once the tempo has reached the target', () => {
+  const { advanceRampRuntime } = loadLogic(['advanceRampRuntime']);
+  const next = advanceRampRuntime({ currentBpm: 140, beatsIntoStep: 3 }, RAMP, 4);
+  assert.equal(next.currentBpm, 140);
+  assert.equal(next.direction, null);
+});
+
+test('advanceRampRuntime sets off again when the target moves away from a held tempo', () => {
+  // The reason direction is derived rather than stored: a ramp that has arrived
+  // used to record "no direction" and never move again, so raising the target
+  // after sitting at the top did nothing at all.
+  const { advanceRampRuntime } = loadLogic(['advanceRampRuntime']);
+  const held = { currentBpm: 140, beatsIntoStep: 9 };
+  const raised = advanceRampRuntime(held, { stopBpm: 160, scaleMode: 'fixed', scaleAmount: 5 }, 4);
+  assert.equal(raised.direction, 'up');
+  assert.equal(raised.currentBpm, 145);
+});
+
+test('advanceRampRuntime walks back down when the target drops below the tempo', () => {
+  const { advanceRampRuntime } = loadLogic(['advanceRampRuntime']);
+  const held = { currentBpm: 140, beatsIntoStep: 9 };
+  const lowered = advanceRampRuntime(held, { stopBpm: 120, scaleMode: 'fixed', scaleAmount: 5 }, 4);
+  assert.equal(lowered.direction, 'down');
+  assert.equal(lowered.currentBpm, 135);
+});
+
+test('advanceRampRuntime leaves the runtime it was given untouched', () => {
+  const { advanceRampRuntime } = loadLogic(['advanceRampRuntime']);
+  const runtime = { currentBpm: 100, direction: 'up', beatsIntoStep: 3 };
+  advanceRampRuntime(runtime, RAMP, 4);
+  assert.deepEqual(runtime, { currentBpm: 100, direction: 'up', beatsIntoStep: 3 });
+});
+
 test('computeNextRampBpm forces at least a 1 BPM move when the step rounds to zero', () => {
   const { computeNextRampBpm } = loadLogic(['computeNextRampBpm']);
   // 2% of 20 BPM is 0.4, which rounds back down to 20 and would stall forever.

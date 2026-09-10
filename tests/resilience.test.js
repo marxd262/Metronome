@@ -44,6 +44,27 @@ test('the two storage accessors exist and each guards its access', () => {
   }
 });
 
+test('Space and the tempo keys share one focus guard', () => {
+  // Every global shortcut has to stand aside for the same three contexts: a
+  // focused field, an open quick-select listbox, and the pattern grid, which
+  // owns BOTH Space and the arrows for its own slots. A second copy of that
+  // logic is how the two keys drift apart and one of them starts stealing a
+  // keystroke the grid needs.
+  const guard = functionBody('globalShortcutAllowed');
+  assert.ok(guard !== null, 'globalShortcutAllowed is missing');
+  assert.ok(guard.includes('openQuickSelectPopup'),
+    'the guard does not stand aside for an open quick-select popup');
+  assert.equal([...SCRIPT.matchAll(/closest\('#patternEditor'\)/g)].length, 1,
+    'the pattern-editor exemption is spelled out in more than one place');
+});
+
+test('every mode registers a main tempo field for the Up and Down keys', () => {
+  for (const tab of ['metronome', 'ramp', 'practice']) {
+    assert.ok(new RegExp(`mainBpmField\\.${tab}\\s*=`).test(SCRIPT),
+      `${tab} does not register a main tempo field, so Up/Down would do nothing there`);
+  }
+});
+
 test('audio start is guarded and failure never reports itself as playing', () => {
   // Constructing an AudioContext throws in a locked-down or embedded context,
   // and resume() rejects where a gesture policy refuses the tab. The second is
