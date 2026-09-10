@@ -159,3 +159,70 @@ test('every .pattern-slot rule lives inside a cascade layer', () => {
     }
   }
 });
+
+// Returns the name of the cascade layer containing each byte offset in STYLE,
+// or null where an offset sits outside every @layer block. Layer order is what
+// decides these contests, and it is invisible to a rule-local read.
+function layerNameAt(offsets) {
+  const order = [];
+  const result = new Map();
+  let depth = 0;
+  const stack = [];
+  for (let i = 0; i < STYLE.length; i++) {
+    if (STYLE.startsWith('@layer', i)) {
+      const brace = STYLE.indexOf('{', i);
+      const semi = STYLE.indexOf(';', i);
+      if (brace !== -1 && (semi === -1 || brace < semi)) {
+        stack.push({ name: STYLE.slice(i + 6, brace).trim(), depth: depth });
+      } else if (semi !== -1) {
+        // The `@layer a, b, c;` statement — this is what fixes the order.
+        STYLE.slice(i + 6, semi).split(',').forEach((n) => order.push(n.trim()));
+      }
+    }
+    if (STYLE[i] === '{') depth++;
+    else if (STYLE[i] === '}') {
+      depth--;
+      if (stack.length && depth === stack[stack.length - 1].depth) stack.pop();
+    }
+    if (offsets.includes(i)) result.set(i, stack.length ? stack[stack.length - 1].name : null);
+  }
+  return { order: order, layerOf: result };
+}
+
+function offsetsOf(pattern) {
+  return [...STYLE.matchAll(pattern)].map((m) => m.index);
+}
+
+test('no outline suppression outranks the shared focus-visible ring', () => {
+  // `outline: none` and the focus ring both declare `outline`, so when a
+  // control is focused BOTH rules match and layer order decides — before
+  // specificity, not after it. Parking the ring in an earlier layer than the
+  // suppression silently removes the keyboard focus indicator, which is how
+  // the range slider ended up with none at all. Same layer is required: there
+  // the ring's :focus-visible makes it the more specific rule and it wins.
+  const ringOffsets = offsetsOf(/outline:\s*2px\s+solid/g);
+  const noneOffsets = offsetsOf(/outline:\s*none/g);
+  assert.ok(ringOffsets.length > 0, 'no focus-visible outline ring found at all');
+
+  const { order, layerOf } = layerNameAt([...ringOffsets, ...noneOffsets].sort((a, b) => a - b));
+  assert.ok(order.length > 0, 'no @layer order statement found');
+
+  const ringLayer = layerOf.get(ringOffsets[0]);
+  assert.ok(order.includes(ringLayer), `focus ring sits in unlayered or unknown layer "${ringLayer}"`);
+
+  for (const offset of noneOffsets) {
+    const suppressionLayer = layerOf.get(offset);
+    assert.ok(order.includes(suppressionLayer),
+      `an "outline: none" at offset ${offset} sits outside every layer`);
+    assert.ok(order.indexOf(suppressionLayer) <= order.indexOf(ringLayer),
+      `"outline: none" in @layer ${suppressionLayer} outranks the focus ring in @layer ${ringLayer}`);
+  }
+});
+
+test('every control that suppresses its outline still declares a focus ring', () => {
+  const ring = rulesWithSelector(':focus-visible').map((r) => r.selector).join(' ');
+  for (const control of ['input[type="number"]', 'select', 'input[type="range"]', 'button']) {
+    assert.ok(ring.includes(control + ':focus-visible'),
+      `${control} has no :focus-visible ring; keyboard focus would be invisible`);
+  }
+});

@@ -20,6 +20,11 @@ Run tests:
 ```bash
 node --test tests/*.test.js
 ```
+Three suites run: `tests/logic.test.js` (the pure LOGIC block),
+`tests/themes.test.js` (static analysis of the stylesheet) and
+`tests/resilience.test.js` (static analysis of the app block, for the
+invariants whose failure kills the page on load).
+
 Use the glob form above — `node --test tests/` (directory form) does not
 reliably discover the test file on every platform/Node version. Requires
 Node 18+ (developed against v26); no other tooling is installed or
@@ -67,7 +72,17 @@ required. There is no lint step.
 section per concern: `topBar` (shared settings + `pattern`, the one
 rhythm pattern all three modes play: `{ beats, division, preset, levels }`,
 where `levels` is a flat `beats * division` array of `LEVEL_*` values),
-`metronome`, `ramp`, `practice`. It's loaded via `deserializeSettings`,
+`metronome`, `ramp`, `practice`. Every `localStorage` touch goes through
+`readSavedSettings`/`writeSavedSettings`, which swallow the exception that
+storage throws where site data is blocked or private browsing has zeroed
+the quota. The read matters most: it runs during initial evaluation, so an
+uncaught throw there aborts the rest of the app block and leaves a page
+with nothing bound rather than one that merely forgets its settings. Both
+degrade silently to defaults — a warning would sit next to the readout the
+design brief's first principle wants kept clear. `tests/resilience.test.js`
+fails the build if a bare `localStorage` call reappears.
+
+It's loaded via `deserializeSettings`,
 which merges each *section* of a saved `localStorage` blob over
 `DEFAULT_STATE` independently — so adding a new field to a section is
 automatically backward-compatible with old saves (they just get the
@@ -297,6 +312,19 @@ break without realizing it:
    the shared rules use `font: inherit`, which carries no `font-weight` —
    a weight a theme wants has to be declared in the theme, not assumed
    inherited.
+
+   The same trap sits one layer lower, and it bit once: the shared
+   `:focus-visible` ring used to live in `base` while `outline: none` on
+   inputs, selects and the range slider lived in `components`. Both
+   declare `outline` and both match a focused control, so layer order
+   picked the suppression and the ring never rendered — the range slider
+   had no keyboard focus indicator at all, and the number inputs were
+   left with only a border-colour change. The ring now sits in
+   `components` below those rules, where its `:focus-visible` makes it
+   the more specific selector and it wins. Keep it there; no theme may
+   declare `outline` on a control. `tests/themes.test.js` enforces both
+   halves — that no `outline: none` outranks the ring's layer, and that
+   every control suppressing its outline still declares one.
 
 ## Project history and conventions
 

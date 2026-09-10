@@ -147,13 +147,6 @@
     touch-action: manipulation;
   }
 
-  input[type="range"]:focus-visible,
-  input[type="number"]:focus-visible,
-  select:focus-visible,
-  button:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
 }
 
 @layer components {
@@ -395,6 +388,22 @@ input[type="range"]::-moz-range-track {
   height: 4px;
   border-radius: var(--radius-round);
   background: var(--divider);
+}
+
+/* Must stay in THIS layer, below the `outline: none` rules above. Both declare
+   `outline` and both match a focused control, so layer order decides the
+   winner before specificity is ever consulted — parking this ring in `base`
+   let the suppressions in `components` silently override it, which left the
+   range slider with no keyboard focus indicator at all. Here the
+   :focus-visible makes it the more specific rule and it wins, and no theme
+   declares `outline`, so nothing downstream can take it away again.
+   tests/themes.test.js enforces both halves of that. */
+input[type="range"]:focus-visible,
+input[type="number"]:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .tapTempo {
@@ -3538,7 +3547,37 @@ const DEFAULT_STATE = {
 };
 
 const STORAGE_KEY = 'guitarMetronomeSettings';
-const savedSettingsJson = localStorage.getItem(STORAGE_KEY);
+
+// Every localStorage access goes through these two, because touching it at all
+// throws in a browser with site data blocked and in private browsing once the
+// quota is zero. The read is the dangerous one: it runs during initial
+// evaluation, so an uncaught throw there aborts the rest of this script and the
+// page renders with nothing bound — controls dead, pattern grid empty — rather
+// than merely forgetting its settings. Neither failure is something the user
+// can act on, so both degrade in silence: the app opens on defaults and plays
+// normally, it just does not remember. A warning would sit next to the readout
+// that principle 1 of the design brief wants kept clear.
+// tests/resilience.test.js keeps bare calls from creeping back in.
+function readSavedSettings() {
+  try {
+    return localStorage.getItem(STORAGE_KEY);
+  } catch (e) {
+    return null;
+  }
+}
+
+function writeSavedSettings(json) {
+  try {
+    localStorage.setItem(STORAGE_KEY, json);
+  } catch (e) {
+    // Nothing to do and nothing to say — see above.
+  }
+}
+
+// null is the same input a first run gives, and every consumer below already
+// treats it as "no save": deserializeSettings returns the defaults untouched,
+// and parseSavedSettings/migrateLegacyPattern fall back to the default pattern.
+const savedSettingsJson = readSavedSettings();
 let state = deserializeSettings(savedSettingsJson, DEFAULT_STATE);
 // deserializeSettings merges section-wise, so a pre-editor save would silently
 // receive the default pattern and lose its meter and accents. Rebuild it from
@@ -3546,7 +3585,7 @@ let state = deserializeSettings(savedSettingsJson, DEFAULT_STATE);
 state.topBar.pattern = migrateLegacyPattern(parseSavedSettings(savedSettingsJson), DEFAULT_STATE);
 
 function persistState() {
-  localStorage.setItem(STORAGE_KEY, serializeSettings(state));
+  writeSavedSettings(serializeSettings(state));
 }
 
 const CLAMP_FLASH_MS = 500;
