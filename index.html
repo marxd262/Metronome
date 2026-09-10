@@ -2958,13 +2958,9 @@ input[type="range"]::-moz-range-track {
     <div id="patternHeader">
       <div class="pattern-field">
         <label for="patternPreset">Preset</label>
-        <select id="patternPreset">
-          <option value="none">None</option>
-          <option value="eighths">Eighths</option>
-          <option value="triplets">Triplets</option>
-          <option value="sixteenths">Sixteenths</option>
-          <option value="custom">Custom</option>
-        </select>
+        <!-- Options are built from PATTERN_PRESETS in bindPatternEditor;
+             fifteen entries duplicated here would drift from the roster. -->
+        <select id="patternPreset"></select>
       </div>
       <div class="pattern-field">
         <label for="patternBeats">Beats</label>
@@ -4286,6 +4282,21 @@ function bindPatternEditor() {
   const division = document.getElementById('patternDivision');
   const grid = document.getElementById('patternGrid');
   const toggle = document.getElementById('patternToggle');
+
+  // Runs at bind time, which is before refreshAllInputsFromState assigns
+  // select.value from saved state — a <select> silently ignores a value
+  // matching no option, and would render blank. Non-breaking spaces because
+  // an <option>'s ordinary whitespace collapses.
+  PATTERN_PRESETS.forEach((entry) => {
+    const option = document.createElement('option');
+    option.value = entry.name;
+    option.textContent = entry.glyph + '\u00A0\u00A0' + entry.label;
+    preset.appendChild(option);
+  });
+  const customOption = document.createElement('option');
+  customOption.value = 'custom';
+  customOption.textContent = 'Custom';
+  preset.appendChild(customOption);
 
   // Resizing the grid invalidates in-flight playhead records and can leave the
   // bar counter past the new end, so both are corrected here in one place.
