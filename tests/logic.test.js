@@ -443,7 +443,7 @@ test('resizePatternLevels fills defaults for a null or short source', () => {
 });
 
 const PATTERN_DEFAULTS = {
-  topBar: { pattern: { beats: 4, division: 1, preset: 'none', levels: [3, 2, 2, 2] } },
+  topBar: { pattern: { beats: 4, division: 1, preset: 'quarter', levels: [3, 2, 2, 2] } },
 };
 
 test('parseSavedSettings returns the object or null, never throws', () => {
@@ -464,10 +464,50 @@ test('normalizePattern clamps and re-sizes the level array to match', () => {
   assert.equal(result.levels[1], 2);
 });
 
+test('presetForPattern names the output of every preset template', () => {
+  const { presetForPattern, buildPresetLevels, PATTERN_PRESETS } =
+    loadLogic(['presetForPattern', 'buildPresetLevels', 'PATTERN_PRESETS']);
+  for (const entry of PATTERN_PRESETS) {
+    for (const beats of [1, 4, 7]) {
+      const pattern = {
+        beats: beats,
+        division: entry.division,
+        levels: buildPresetLevels(beats, entry),
+      };
+      assert.equal(presetForPattern(pattern), entry.name, entry.name + ' at ' + beats + ' beats');
+    }
+  }
+});
+
+test('presetForPattern calls anything it cannot match custom', () => {
+  const { presetForPattern } = loadLogic(['presetForPattern']);
+  //  division 5 is outside the roster entirely
+  assert.equal(presetForPattern({ beats: 4, division: 5, levels: new Array(20).fill(2) }), 'custom');
+  //  division 2 is in the roster, but neither eighths nor offbeat eighths
+  //  looks like this
+  assert.equal(presetForPattern({ beats: 2, division: 2, levels: [3, 1, 2, 0] }), 'custom');
+  assert.equal(presetForPattern({ beats: 2, division: 2, levels: [] }), 'custom');
+  assert.equal(presetForPattern(null), 'custom');
+});
+
 test('normalizePattern fills a preset name when one is missing', () => {
   const { normalizePattern } = loadLogic(['normalizePattern']);
   assert.equal(normalizePattern({ beats: 4, division: 3, levels: [] }).preset, 'triplets');
   assert.equal(normalizePattern({ beats: 4, division: 7, levels: [] }).preset, 'custom');
+});
+
+test('normalizePattern rewrites a saved preset name that left the roster', () => {
+  const { normalizePattern } = loadLogic(['normalizePattern']);
+  //  'none' is what every pre-roster save carries; it is now called 'quarter'
+  assert.equal(normalizePattern({ beats: 4, division: 1, preset: 'none', levels: [3, 2, 2, 2] }).preset, 'quarter');
+  assert.equal(normalizePattern({ beats: 2, division: 2, preset: 'garbage', levels: [3, 1, 2, 1] }).preset, 'eighths');
+  assert.equal(normalizePattern({ beats: 2, division: 2, preset: 'garbage', levels: [3, 1, 2, 0] }).preset, 'custom');
+});
+
+test('normalizePattern keeps a preset name that is still in the roster', () => {
+  const { normalizePattern } = loadLogic(['normalizePattern']);
+  assert.equal(normalizePattern({ beats: 3, division: 2, preset: 'eighths', levels: [3, 0, 2, 1, 2, 1] }).preset, 'eighths');
+  assert.equal(normalizePattern({ beats: 2, division: 2, preset: 'custom', levels: [3, 1, 2, 1] }).preset, 'custom');
 });
 
 test('migrateLegacyPattern returns the default for null or junk input', () => {
@@ -487,9 +527,9 @@ test('migrateLegacyPattern maps each legacy subdivision name to a division', () 
   const { migrateLegacyPattern } = loadLogic(['migrateLegacyPattern']);
   // Keys are the literal strings an old save's topBar.subdivision could hold.
   // 'none' still resolves to division 1 (divisionForPreset falls back to 1
-  // for a name the roster no longer has), but presetForDivision now names
-  // division 1 'quarter' — the roster's replacement for the old 'none' —
-  // not the legacy string itself.
+  // for a name the roster no longer has), but presetForPattern now names
+  // division 1's rebuilt levels 'quarter' — the roster's replacement for the
+  // old 'none' — not the legacy string itself.
   const cases = {
     none: { division: 1, preset: 'quarter' },
     eighths: { division: 2, preset: 'eighths' },

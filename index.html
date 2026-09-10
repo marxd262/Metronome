@@ -3274,11 +3274,6 @@ function divisionForPreset(preset) {
   return found ? found.division : null;
 }
 
-function presetForDivision(division) {
-  const found = PATTERN_PRESETS.find((entry) => entry.division === division);
-  return found ? found.name : 'custom';
-}
-
 function defaultLevelForSlot(beat, slot) {
   if (slot !== 0) return LEVEL_QUIET;
   return beat === 0 ? LEVEL_ACCENT : LEVEL_NORMAL;
@@ -3295,6 +3290,30 @@ function buildPresetLevels(beats, preset) {
     }
   }
   return levels;
+}
+
+// Names a pattern by what its levels actually are rather than by its
+// division: seven presets share division 4, and changing the division
+// preserves the old levels instead of rebuilding them, so only a full
+// comparison can say whether the grid still matches the preset it came
+// from. Called on user input and on load, never from the scheduler or the
+// playhead frame loop, so building up to fifteen candidates is not on a
+// timing path.
+function presetForPattern(pattern) {
+  const source = pattern && typeof pattern === 'object' ? pattern : {};
+  const levels = Array.isArray(source.levels) ? source.levels : [];
+  for (let i = 0; i < PATTERN_PRESETS.length; i++) {
+    const preset = PATTERN_PRESETS[i];
+    if (preset.division !== source.division) continue;
+    const candidate = buildPresetLevels(source.beats, preset);
+    if (candidate.length !== levels.length) continue;
+    let same = true;
+    for (let j = 0; j < candidate.length; j++) {
+      if (candidate[j] !== levels[j]) { same = false; break; }
+    }
+    if (same) return preset.name;
+  }
+  return 'custom';
 }
 
 // Preserves every level by its (beat, slot) position rather than by flat index,
@@ -3333,7 +3352,14 @@ function normalizePattern(pattern) {
     Array.isArray(source.levels) ? source.levels : null,
     beats, division, beats, division
   );
-  const preset = typeof source.preset === 'string' ? source.preset : presetForDivision(division);
+  // A saved name from an older roster ('none', in particular) would reach
+  // select.value and match no <option>, leaving the dropdown blank. Anything
+  // not in today's roster is re-derived from the levels instead.
+  const saved = source.preset;
+  const known = saved === 'custom' || presetByName(saved) !== null;
+  const preset = known
+    ? saved
+    : presetForPattern({ beats: beats, division: division, levels: levels });
   return { beats: beats, division: division, preset: preset, levels: levels };
 }
 
@@ -3359,7 +3385,9 @@ function migrateLegacyPattern(parsed, defaults) {
       else levels.push(accents[beat] ? LEVEL_ACCENT : LEVEL_NORMAL);
     }
   }
-  return { beats: beats, division: division, preset: presetForDivision(division), levels: levels };
+  const migrated = { beats: beats, division: division, preset: 'custom', levels: levels };
+  migrated.preset = presetForPattern(migrated);
+  return migrated;
 }
 
 // Scans by time rather than by ring position, so a wrapped buffer needs no
@@ -3500,7 +3528,7 @@ const DEFAULT_STATE = {
     // LEVEL_* come from the LOGIC <script>, which runs before this block, so
     // the seed states its levels by name like every other level reference.
     pattern: {
-      beats: 4, division: 1, preset: 'none',
+      beats: 4, division: 1, preset: 'quarter',
       levels: [LEVEL_ACCENT, LEVEL_NORMAL, LEVEL_NORMAL, LEVEL_NORMAL],
     },
     patternEditorOpen: true,
@@ -4279,7 +4307,9 @@ function bindPatternEditor() {
       pattern.levels, pattern.beats, pattern.division, clamped, pattern.division
     );
     pattern.beats = clamped;
+    pattern.preset = presetForPattern(pattern);
     beats.value = clamped;
+    preset.value = pattern.preset;
     afterPatternResize();
   }
 
@@ -4291,7 +4321,7 @@ function bindPatternEditor() {
       pattern.levels, pattern.beats, pattern.division, pattern.beats, clamped
     );
     pattern.division = clamped;
-    pattern.preset = presetForDivision(clamped);
+    pattern.preset = presetForPattern(pattern);
     division.value = clamped;
     preset.value = pattern.preset;
     afterPatternResize();
