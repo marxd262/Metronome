@@ -377,15 +377,59 @@ test('every preset carries one template entry per slot of its division', () => {
   }
 });
 
-test('divisionForPreset maps roster names to divisions and rejects the rest', () => {
-  const { divisionForPreset } = loadLogic(['divisionForPreset']);
-  assert.equal(divisionForPreset('quarter'), 1);
-  assert.equal(divisionForPreset('offbeat-eighths'), 2);
-  assert.equal(divisionForPreset('triplet-middle'), 3);
-  assert.equal(divisionForPreset('gallop'), 4);
-  assert.equal(divisionForPreset('custom'), null);
-  assert.equal(divisionForPreset('none'), null);
-  assert.equal(divisionForPreset('nonsense'), null);
+// Pins the roster's exact contents. Every other roster test either checks
+// structure (shape, uniqueness) or derives its expectation from `slots`
+// itself, so none of them can catch a wrong template landing in
+// PATTERN_PRESETS — this is the one test that would. Glyphs are written as
+// \u escapes so an editor cannot silently swap in a different character.
+test('PATTERN_PRESETS matches the authoritative roster table', () => {
+  const { PATTERN_PRESETS } = loadLogic(['PATTERN_PRESETS']);
+  const expected = [
+    { name: 'quarter',                    division: 1, glyph: '♩',       label: 'Quarter',              slots: [1] },
+    { name: 'eighths',                    division: 2, glyph: '♫',       label: 'Eighths',              slots: [1, 1] },
+    { name: 'offbeat-eighths',            division: 2, glyph: '♫',       label: 'Offbeat eighths',      slots: [0, 1] },
+    { name: 'triplets',                   division: 3, glyph: '♪³', label: 'Triplet',              slots: [1, 1, 1] },
+    { name: 'triplet-first-two',          division: 3, glyph: '♪³', label: 'Triplet, first two',   slots: [1, 1, 0] },
+    { name: 'triplet-outer',              division: 3, glyph: '♪³', label: 'Triplet, outer two',   slots: [1, 0, 1] },
+    { name: 'triplet-last-two',           division: 3, glyph: '♪³', label: 'Triplet, last two',    slots: [0, 1, 1] },
+    { name: 'triplet-middle',             division: 3, glyph: '♪³', label: 'Triplet, middle only', slots: [0, 1, 0] },
+    { name: 'sixteenths',                 division: 4, glyph: '♬',       label: 'Sixteenths',           slots: [1, 1, 1, 1] },
+    { name: 'offbeat-sixteenths',         division: 4, glyph: '♬',       label: 'Sixteenth offbeats',   slots: [0, 1, 0, 1] },
+    { name: 'gallop',                     division: 4, glyph: '♬',       label: 'Gallop',               slots: [1, 1, 1, 0] },
+    { name: 'reverse-gallop',             division: 4, glyph: '♬',       label: 'Reverse gallop',       slots: [1, 0, 1, 1] },
+    { name: 'sixteenth-eighth-sixteenth', division: 4, glyph: '♬',       label: '16th-8th-16th',        slots: [1, 1, 0, 1] },
+    { name: 'dotted-eighth-sixteenth',    division: 4, glyph: '♬',       label: 'Dotted eighth + 16th', slots: [1, 0, 0, 1] },
+    { name: 'sixteenth-dotted-eighth',    division: 4, glyph: '♬',       label: '16th + dotted eighth', slots: [1, 1, 0, 0] },
+  ];
+  assert.deepEqual(PATTERN_PRESETS, expected);
+});
+
+// The preset <select> groups its glyphs by division as it walks the roster
+// in order, so it depends on divisions never stepping backward.
+test('PATTERN_PRESETS divisions are non-decreasing', () => {
+  const { PATTERN_PRESETS } = loadLogic(['PATTERN_PRESETS']);
+  for (let i = 1; i < PATTERN_PRESETS.length; i++) {
+    assert.ok(
+      PATTERN_PRESETS[i].division >= PATTERN_PRESETS[i - 1].division,
+      PATTERN_PRESETS[i - 1].name + ' -> ' + PATTERN_PRESETS[i].name
+    );
+  }
+});
+
+// Same claim as the accent count in the "sizes the array" test below, but
+// checked by name against the four presets that rest on their own first
+// slot, rather than by reading `slots[0]` — so a roster edit that changes
+// what rests without updating this list is what this test is for.
+test('exactly the four rest-first presets produce zero accents; every other preset produces one', () => {
+  const { PATTERN_PRESETS, buildPresetLevels, LEVEL_ACCENT } =
+    loadLogic(['PATTERN_PRESETS', 'buildPresetLevels', 'LEVEL_ACCENT']);
+  const zeroAccentNames = new Set([
+    'offbeat-eighths', 'triplet-last-two', 'triplet-middle', 'offbeat-sixteenths',
+  ]);
+  for (const entry of PATTERN_PRESETS) {
+    const accents = buildPresetLevels(1, entry).filter((l) => l === LEVEL_ACCENT).length;
+    assert.equal(accents, zeroAccentNames.has(entry.name) ? 0 : 1, entry.name);
+  }
 });
 
 test('buildPresetLevels mutes resting slots and accents only the first beat', () => {
@@ -573,14 +617,17 @@ test('migrateLegacyPattern falls back when the metronome section is missing', ()
 
 test('migrateLegacyPattern reads legacy names through its own map, not the roster', () => {
   const { migrateLegacyPattern } = loadLogic(['migrateLegacyPattern']);
-  //  'quarter' is a preset name but was never a Subdivision <select> value,
-  //  so migration must not resolve it — it falls back to division 1.
+  //  'triplet-outer' and 'gallop' are both roster names but were never
+  //  Subdivision <select> values, so migration must not resolve either
+  //  through the roster — both fall back to division 1. Each is chosen
+  //  because the old roster-reading implementation would have returned a
+  //  different division for it (3 and 4, respectively), so a regression
+  //  back to reading the roster would fail these assertions.
   const saved = {
-    topBar: { subdivision: 'quarter' },
+    topBar: { subdivision: 'triplet-outer' },
     metronome: { timeSigNum: 4, accentPattern: [true, false, false, false] },
   };
   assert.equal(migrateLegacyPattern(saved, PATTERN_DEFAULTS).division, 1);
-  //  'gallop' likewise: a roster name, never a legacy value.
   const other = {
     topBar: { subdivision: 'gallop' },
     metronome: { timeSigNum: 4, accentPattern: [true, false, false, false] },

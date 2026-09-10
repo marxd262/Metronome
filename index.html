@@ -3265,11 +3265,6 @@ function presetByName(name) {
   return PATTERN_PRESETS.find((entry) => entry.name === name) || null;
 }
 
-function divisionForPreset(preset) {
-  const found = presetByName(preset);
-  return found ? found.division : null;
-}
-
 function defaultLevelForSlot(beat, slot) {
   if (slot !== 0) return LEVEL_QUIET;
   return beat === 0 ? LEVEL_ACCENT : LEVEL_NORMAL;
@@ -3278,7 +3273,7 @@ function defaultLevelForSlot(beat, slot) {
 // Division comes from the template's own length, so a roster entry cannot
 // disagree with itself about how many slots a beat has.
 function buildPresetLevels(beats, preset) {
-  const slots = preset && Array.isArray(preset.slots) ? preset.slots : [1];
+  const slots = preset.slots;
   const levels = [];
   for (let beat = 0; beat < beats; beat++) {
     for (let slot = 0; slot < slots.length; slot++) {
@@ -4392,8 +4387,11 @@ function bindPatternEditor() {
     const index = Number(el.dataset.index);
     const next = cyclePatternLevel(pattern.levels[index], direction);
     pattern.levels[index] = next;
-    pattern.preset = 'custom';
-    preset.value = 'custom';
+    // Re-derive rather than hard-code 'custom': cycling a slot back to its
+    // original level can leave the grid byte-identical to the preset it
+    // started from, and the dropdown must say so.
+    pattern.preset = presetForPattern(pattern);
+    preset.value = pattern.preset;
     patternFocusIndex = index;
     applySlotStyle(el, next, pattern.division);
     persistState();
