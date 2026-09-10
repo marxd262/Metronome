@@ -44,6 +44,26 @@ test('the two storage accessors exist and each guards its access', () => {
   }
 });
 
+test('audio start is guarded and failure never reports itself as playing', () => {
+  // Constructing an AudioContext throws in a locked-down or embedded context,
+  // and resume() rejects where a gesture policy refuses the tab. The second is
+  // the nastier one: it happens AFTER the transport has flipped to "Stop", so
+  // without a rejection handler the button, the dots and the readouts all claim
+  // the metronome is running while nothing is audible — the surface lying about
+  // the one thing it exists to do.
+  const ensure = functionBody('ensureAudioContext');
+  assert.ok(ensure !== null, 'ensureAudioContext is missing');
+  assert.ok(/try\s*\{/.test(ensure) && /catch\s*\(/.test(ensure),
+    'ensureAudioContext does not guard the constructor');
+
+  const start = functionBody('startPlayback');
+  assert.ok(start !== null, 'startPlayback is missing');
+  assert.ok(/if\s*\(\s*!\s*ctx\s*\)/.test(start),
+    'startPlayback does not bail when there is no audio context');
+  assert.ok(/\.catch\s*\(/.test(start),
+    'startPlayback does not handle a rejected resume()');
+});
+
 test('no localStorage access escapes those two accessors', () => {
   // A bare read at top level is the dangerous one: it throws outright where
   // site data is blocked, and because it runs during initial evaluation the

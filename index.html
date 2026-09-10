@@ -548,6 +548,22 @@ button:focus-visible {
    metronome on a phone meant scrolling past everything you had already set.
    Readout and transport are the two things a player looks at rather than
    adjusts, so they belong together at both widths. */
+/* Reads against every theme without any of them overriding it: --accent-beat,
+   --text-muted and --radius are all in REQUIRED_TOKENS, so each theme has
+   already chosen its own values for them. Colour is not the only signal — the
+   border and the position under the transport carry it too. */
+#transportNote {
+  max-width: 34ch;
+  margin: 0;
+  padding: var(--space-2xs) var(--space-xs);
+  border: 1px solid var(--accent-beat);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  text-align: center;
+  text-wrap: balance;
+}
+
 #controls {
   display: flex;
   flex-direction: column;
@@ -2960,6 +2976,10 @@ button:focus-visible {
 
   <div id="controls">
     <button id="startStop" type="button">Start</button>
+    <!-- Empty and hidden until audio actually fails. role="status" announces it
+         once, on the one state change a screen-reader user cannot hear for
+         themselves — unlike the readouts, which change every beat. -->
+    <p id="transportNote" role="status" hidden></p>
   </div>
   </div>
 
@@ -3692,9 +3712,38 @@ let beatIndexInBar = 0;
 const LOOKAHEAD_MS = 25;
 const SCHEDULE_AHEAD_SEC = 0.1;
 
+// Returns null rather than throwing when Web Audio is unavailable — an
+// embedded or locked-down context can refuse the constructor outright. Every
+// other caller sits on the playback path and is only reachable once
+// startPlayback has already accepted a non-null context, so the null check
+// lives there and there alone.
 function ensureAudioContext() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!audioCtx) {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return null;
+    try {
+      audioCtx = new Ctor();
+    } catch (e) {
+      return null;
+    }
+  }
   return audioCtx;
+}
+
+// The only message this app ever shows. It is inline under the transport rather
+// than a banner or a dialog, because the brief's third principle asks new UI to
+// stay out of the way — and it clears itself the moment a start succeeds, so a
+// one-off block never lingers as permanent chrome.
+function showTransportNote(text) {
+  const note = document.getElementById('transportNote');
+  note.textContent = text;
+  note.hidden = false;
+}
+
+function clearTransportNote() {
+  const note = document.getElementById('transportNote');
+  note.hidden = true;
+  note.textContent = '';
 }
 
 function soundFrequency(style, accent) {
@@ -4010,10 +4059,29 @@ function triggerBeatFlash(accent) {
   if (accent) flash.classList.add('beat-accent');
 }
 
+const AUDIO_BLOCKED_NOTE = 'Audio didn’t start. Press Start again — if it stays silent, reload the page.';
+
 function startPlayback() {
   if (isPlaying) return;
   const ctx = ensureAudioContext();
-  if (ctx.state === 'suspended') ctx.resume();
+  // Bail before touching any transport state: a run that cannot make sound must
+  // not leave the button reading "Stop" over silence.
+  if (!ctx) {
+    showTransportNote(AUDIO_BLOCKED_NOTE);
+    return;
+  }
+  clearTransportNote();
+  if (ctx.state === 'suspended') {
+    const resuming = ctx.resume();
+    // resume() rejects asynchronously, well after the lines below have started
+    // the run, so this path has to unwind a transport that is already playing.
+    if (resuming && typeof resuming.catch === 'function') {
+      resuming.catch(() => {
+        stopPlayback();
+        showTransportNote(AUDIO_BLOCKED_NOTE);
+      });
+    }
+  }
   isPlaying = true;
   beatIndexInBar = 0;
   startPlayhead();
