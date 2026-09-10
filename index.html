@@ -2,7 +2,7 @@
 <html lang="en" data-theme="classic">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Guitar Practice Metronome</title>
 <style>
 @layer base, components, themes, motion;
@@ -66,7 +66,12 @@
     --text-xs:   0.75rem;
     --text-sm:   0.875rem;
     --text-base: 1rem;
-    --text-hero: 4.5rem;
+    /* Fluid, not fixed: the desktop layout gives the hero its own column, and a
+       72px number in a 460px column reads as a phone screenshot pasted onto a
+       monitor. The lower clamp bound is the old fixed value, and 3.5rem + 3vw
+       only exceeds it above a ~533px viewport, so every phone keeps today's size
+       exactly. */
+    --text-hero: clamp(4.5rem, 3.5rem + 3vw, 6.5rem);
 
     /* Leading */
     --leading-none:   1;
@@ -94,6 +99,15 @@
        so deliberately outside the spacing scale above rather than forced onto it. */
     --quick-select-popup-max-height: 12.5rem;
     --quick-select-popup-min-width: 4.5rem;
+
+    /* Body width once the two-column desktop layout kicks in. Each theme
+       overrides this beside its --content-max-width; the default here means a
+       future theme that forgets to is merely narrow, never broken. Deliberately
+       NOT added to REQUIRED_TOKENS for that reason. */
+    --content-max-width-wide: 1080px;
+
+    /* The viewport at which the single column splits into controls + hero. */
+    --breakpoint-wide: 900px;
   }
 
   * { box-sizing: border-box; }
@@ -105,13 +119,32 @@
     -moz-osx-font-smoothing: grayscale;
     max-width: var(--content-max-width);
     margin: var(--space-2xl) auto;
-    padding: 0 var(--space-md) var(--space-3xl);
+    /* Four-value shorthand, not padding-inline/-block longhands: Grid Console
+       restates `padding` as a shorthand from @layer themes, which would drop
+       longhands entirely. max() keeps the normal gutter on every phone without
+       a notch and grows only where the inset is real. */
+    padding:
+      0
+      max(var(--space-md), env(safe-area-inset-right))
+      calc(var(--space-3xl) + env(safe-area-inset-bottom))
+      max(var(--space-md), env(safe-area-inset-left));
     line-height: var(--leading-normal);
   }
 
   button {
     font: inherit;
     cursor: pointer;
+  }
+
+  /* Without this a phone browser holds each tap ~300ms waiting for a possible
+     double-tap zoom. That is a latency bug on a metronome: Tap Tempo averages
+     the intervals a user taps, and the pattern slots are cycled by repeated
+     taps. Covers .pattern-slot too — slots are <button> elements. */
+  button,
+  select,
+  input[type="range"],
+  input[type="number"] {
+    touch-action: manipulation;
   }
 
   input[type="range"]:focus-visible,
@@ -233,7 +266,10 @@ h1 {
 
 #heroZone {
   text-align: center;
-  margin-bottom: var(--space-xl);
+  /* Small, because #controls sits directly beneath the readout and closes the
+     cluster visually. The gap a reader actually sees is this plus #controls'
+     own margin-top, which three themes raise to --space-lg. */
+  margin-bottom: var(--space-2xs);
 }
 
 .hero-frame { position: relative; }
@@ -497,12 +533,21 @@ input[type="range"]::-moz-range-track {
   color: var(--on-accent);
 }
 
+/* Start/Stop sits immediately after #heroZone in the DOM, not at the end of
+   the page. On the single column that is the whole point: the primary action
+   used to sit below the pattern editor and the mode panel, so starting the
+   metronome on a phone meant scrolling past everything you had already set.
+   Readout and transport are the two things a player looks at rather than
+   adjusts, so they belong together at both widths. */
 #controls {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-xs);
   margin-top: var(--space-2xs);
+  /* Separates the hero/transport cluster from the settings below it. No theme
+     declares margin-bottom on #controls, so this holds in all five. */
+  margin-bottom: var(--space-xl);
 }
 
 #startStop {
@@ -587,8 +632,17 @@ input[type="range"]::-moz-range-track {
        small target for a wrong one. 26px plus a 4px gap is the largest target
        that stays honest; the keyboard path added in Task 8 is the real
        accommodation for anyone who cannot hit it. */
+    /* One size at every beat and division count. The editor used to shrink
+       slots once a pattern grew past a threshold, which meant editing beats
+       or division silently resized every cell you were aiming at. The design
+       spec's reason for shrinking was "so the Start button is never pushed
+       off screen at any setting"; that no longer applies, because the grid is
+       capped at --pattern-grid-max-height and scrolls on both axes, and the
+       transport now sits above the editor rather than below it. A pattern too
+       wide for one line wraps its beat blocks instead, and only a single beat
+       wider than the whole grid still scrolls sideways — a drag, never a
+       mis-tap. */
     --pattern-slot-size: 26px;
-    --pattern-slot-size-compact: 10px;
     --pattern-grid-max-height: 40vh;
 
     border: 1px solid var(--divider);
@@ -657,15 +711,42 @@ input[type="range"]::-moz-range-track {
 
   #patternGrid {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    /* Beat blocks flow across and wrap, so a pattern spends the width it has
+       before it spends height. Every block is the same width — a 1.5rem number
+       plus `division` identical slots — so the wrapped lines self-align into
+       columns on their own and need no grid template to do it. */
+    flex-wrap: wrap;
+    /* Packs the wrapped lines at the top. The default stretch would spread them
+       down the full max-height whenever the pattern is shorter than that cap,
+       opening gaps between lines that read as pattern structure and are not. */
+    align-content: flex-start;
+    /* 16px between blocks against 4px inside one. That 4:1 ratio is the whole
+       reason a beat still reads as a unit now that its neighbour sits beside it
+       rather than below it — no border, tint or separator says it again. */
+    column-gap: var(--space-sm);
+    row-gap: 4px;
     margin-top: var(--space-sm);
     max-height: var(--pattern-grid-max-height);
     overflow: auto;
+    /* Reserves the vertical scrollbar's gutter whether or not it is showing.
+       Without it, stepping Beats past the point where the grid outgrows its
+       max-height makes a scrollbar appear, which takes width away, which can
+       drop the whole grid to one fewer block per line — every block jumping
+       sideways on a single press of a stepper the user is holding down. The
+       gutter costs a few idle pixels and buys a layout that only changes when
+       the pattern does. */
+    scrollbar-gutter: stable;
   }
 
+  /* flex: none, not the flex-item default: shrinking is what a wrapping
+     container tries before it wraps, and a shrunk block would squeeze its own
+     slots — themselves flex: none — straight out of its padding box. Pinned at
+     content width, a block that cannot fit wraps instead, and the one case that
+     still cannot fit (a single beat wider than the grid) overflows into the
+     sideways scroll the container already offers. */
   .pattern-row {
     display: flex;
+    flex: none;
     align-items: center;
     gap: 4px;
     border-radius: var(--radius);
@@ -742,9 +823,12 @@ input[type="range"]::-moz-range-track {
      transitionend listener, so it cannot get stuck the way .pulse once did. */
   .pattern-slot.playhead { box-shadow: 0 0 0 2px var(--accent), 0 0 12px var(--accent-glow); }
 
-  /* Not var(--overlay): in Classic that token is the slot's own background and
-     the section's border colour, all three #2a2a33, so the row highlight would
-     be invisible against the very cells it is meant to group. */
+  /* Marks the beat block the playhead is inside, which since the blocks wrap is
+     one beat wide rather than the grid's full width — the tighter box is the
+     more useful one, because it names a beat instead of a screen row.
+     Not var(--overlay): in Classic that token is the slot's own background and
+     the section's border colour, all three #2a2a33, so the highlight would be
+     invisible against the very cells it is meant to group. */
   .pattern-row.playhead-row { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 
   /* While playing, everything but the sounding slot recedes so the playhead
@@ -753,18 +837,6 @@ input[type="range"]::-moz-range-track {
      setTransportState. */
   body.playing .pattern-slot:not(.playhead) { opacity: 0.7; }
   body.playing .pattern-slot.level-muted:not(.playhead) { opacity: 0.35; }
-
-  #patternGrid.compact { gap: 2px; }
-  #patternGrid.compact .pattern-row { gap: 2px; }
-  #patternGrid.compact .pattern-slot {
-    width: var(--pattern-slot-size-compact);
-    height: var(--pattern-slot-size-compact);
-    border-radius: 2px;
-  }
-  #patternGrid.compact .pattern-slot.level-quiet::after  { width: 3px; height: 3px; }
-  #patternGrid.compact .pattern-slot.level-normal::after { width: 5px; height: 5px; }
-  #patternGrid.compact .pattern-slot.level-accent::after { width: 6px; height: 6px; }
-  #patternGrid.compact .pattern-beat-number { width: 1.1rem; }
 
   /* The legend is the only thing that teaches four fill sizes. It sits inside
      the collapsible body so it disappears with the grid it explains. */
@@ -815,6 +887,133 @@ input[type="range"]::-moz-range-track {
   .pattern-swatch.level-accent::after { width: 9px; height: 9px; background: var(--accent); }
 }
 
+@layer components {
+
+/* ══ Responsive skeleton ══════════════════════════════════════════════════
+   Arrangement lives here, in @layer components, so all five themes share one
+   layout and a theme supplies only colour, texture and typography. Grid
+   Console is the single exception: it restates the wide layout for itself
+   from @layer themes, which outranks this, and its block mirrors the row
+   order below so the two never disagree about where the pattern editor sits.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Coarse pointers ──
+   Keyed on pointer type, not viewport width, so a large touchscreen gets the
+   bigger targets and a narrow desktop window does not. .pattern-slot is
+   deliberately excluded — see the --pattern-slot-size comment for why 26px is
+   the honest maximum there. */
+@media (pointer: coarse) {
+  .step-btn,
+  .tapTempo,
+  .tab-btn,
+  #patternToggle,
+  #startStop { min-height: 44px; }
+
+  .quick-select-toggle { min-width: 2.25rem; min-height: 44px; }
+
+  .quick-select-option { padding-block: var(--space-xs); }
+
+  input[type="range"]::-webkit-slider-thumb { width: 22px; height: 22px; }
+  input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; }
+}
+
+/* ── Narrow phones ──
+   The BPM stepper row is [-5][-][input][Tap][+][+5]. Under ~420px those six
+   fixed-width controls leave the number input barely wider than the digits it
+   holds. Wrapping Tap onto its own full-width line hands ~80px back to the
+   input and makes Tap the largest target in the row, which is the right
+   ranking: it is the one control a user hits repeatedly and in rhythm. */
+@media (max-width: 420px) {
+  .stepper-row { flex-wrap: wrap; }
+
+  .stepper-row > .tapTempo {
+    order: 1;
+    flex: 1 0 100%;
+    padding-block: var(--space-2xs);
+  }
+}
+
+/* ── Scroll containment ──
+   Both scroll inside a page that also scrolls. Without this, hitting the end
+   of the inner scroll chains to the document and drags the whole page out
+   from under a user scrubbing a long pattern. */
+#patternGrid,
+.quick-select-popup { overscroll-behavior: contain; }
+
+/* ── Wide viewports: controls left, readout right ──
+   Below this the layout is the original single column, unchanged. */
+@media (min-width: 900px) {
+  body {
+    max-width: var(--content-max-width-wide);
+    display: grid;
+    /* Rows 1-2 are the full-width header band. Rows 3-5 are the three
+       left-column children in DOM order: #tabs, #patternEditor, .panel.
+       Exactly one .panel is ever in flow (the other two carry [hidden], which
+       .panel[hidden] resolves to display:none), so that count is fixed at
+       three. The two <script> elements are display:none per the UA sheet and
+       the quick-select popup is position:fixed, so neither becomes a grid
+       item. */
+    grid-template-rows: auto auto repeat(3, auto);
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    column-gap: var(--space-2xl);
+    align-items: start;
+  }
+
+  #masthead,
+  #topbar { grid-column: 1 / -1; }
+
+  /* Left column: the things you set. Visual order matches DOM order exactly,
+     so reading order and tab order still agree — the reason the pattern
+     editor stays above the mode panel rather than being reshuffled here. */
+  #tabs,
+  #patternEditor,
+  .panel { grid-column: 1; }
+
+  /* Right column: the things you watch. The readout and the transport are the
+     two elements a user looks at rather than adjusts, so on desktop they
+     become one cluster instead of bookending a scroll. #controls is already
+     the last element in the DOM, so pulling it into column two costs nothing
+     in reading or tab order.
+
+     #stage is why they are wrapped rather than placed as two grid items.
+     Placed separately, each one sizes a row of the shared grid, so the
+     readout — taller than the tab strip beside it — inflated row 3 and opened
+     a gap under #tabs in column one. One wrapper spanning every control row
+     gives column two its own vertical flow: nothing it contains can push a
+     row in column one, and the readout and transport stay adjacent because
+     they are now siblings in a flex column rather than two items hoping the
+     rows between them stay short.
+
+     It is deliberately not position:sticky: Pulse Engine and Grid Console
+     both pin .hero-frame to position:relative from @layer themes, so only a
+     wrapper could stick, and a stuck box cannot also stretch-and-centre.
+     Centring is correct in all five themes at every height; sticky only pays
+     off once the page scrolls. */
+  #stage {
+    grid-column: 2;
+    grid-row: 3 / -1;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  #heroZone { margin-bottom: 0; }
+
+  #controls {
+    margin-top: var(--space-lg);
+    margin-bottom: 0;
+  }
+
+  /* The Sound select and the theme select both sit in grid columns sized for
+     a phone. Left uncapped they stretch to ~500px to hold the word "Click".
+     A cap, not a fixed width, so a longer option label can still grow. */
+  #topbar select,
+  #themeSelect { max-width: 16rem; }
+}
+
+}
+
 @layer themes {
 
 :root[data-theme="classic"] {
@@ -835,7 +1034,10 @@ input[type="range"]::-moz-range-track {
   --dot-strike:        0.05s;
   --dot-decay:         0.05s;
   --dot-ease:          ease;
+  /* Each theme carries both widths: the narrow single column and its
+     wide two-column companion. See @layer base for the shared default. */
   --content-max-width: 480px;
+  --content-max-width-wide: 1060px;
   --radius:            8px;
   --radius-panel:      8px;
   --font-ui:      system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -880,6 +1082,7 @@ input[type="range"]::-moz-range-track {
   --dot-decay:         340ms;
   --dot-ease:          cubic-bezier(0.15, 0.75, 0.3, 1);
   --content-max-width: 500px;
+  --content-max-width-wide: 1100px;
   --radius:            6px;
   --radius-panel:      14px;
   --font-ui:      system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -1249,10 +1452,25 @@ input[type="range"]::-moz-range-track {
   margin-top: var(--space-lg);
 }
 
+/* The circle's size comes from width/height, so the shared rule's
+   `padding: var(--space-sm) var(--space-3xl)` has to go: 48px of side padding
+   against a 108px border-box leaves a 10px content box, and the label was
+   laid out from that box's left edge, landing ~17px right of centre. Flex
+   centring rather than relying on the button's default text centring, because
+   that is what stays correct if the label ever wraps or gains an icon.
+   text-indent is half of --tracking-wider, offsetting the trailing
+   letter-space the tracking adds after the final character: the glyph run is
+   centred including that space, so the letters you actually see sit half a
+   letter-space left of true centre. */
 :root[data-theme="pulse-engine"] #startStop {
   position: relative;
   width: 108px;
   height: 108px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-indent: calc(var(--tracking-wider) / 2);
   border-radius: var(--radius-round);
   background: var(--accent);
   color: var(--on-accent);
@@ -1322,6 +1540,7 @@ input[type="range"]::-moz-range-track {
   --dot-decay:         400ms;
   --dot-ease:          cubic-bezier(0.1, 0.8, 0.25, 1);
   --content-max-width: 640px;
+  --content-max-width-wide: 1180px;
   --radius:            3px;
   --radius-panel:      0;
   --font-ui:      system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -1724,6 +1943,7 @@ input[type="range"]::-moz-range-track {
   --dot-decay:         520ms;
   --dot-ease:          cubic-bezier(0.1, 0.82, 0.25, 1);
   --content-max-width: 520px;
+  --content-max-width-wide: 1080px;
   --radius:            10px;
   --radius-panel:      20px;
   --font-ui:      system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -2112,6 +2332,7 @@ input[type="range"]::-moz-range-track {
   --dot-decay:         280ms;
   --dot-ease:          cubic-bezier(0.15, 0.8, 0.3, 1);
   --content-max-width: 880px;
+  --content-max-width-wide: 1280px;
   --radius:            2px;
   --radius-panel:      0;
   --font-ui:      system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -2140,7 +2361,14 @@ input[type="range"]::-moz-range-track {
 
 :root[data-theme="grid-console"] body {
   margin: var(--space-xl) auto;
-  padding: 0 var(--space-md) var(--space-xl);
+  /* Restates the base layer's safe-area insets: this shorthand sits in @layer
+     themes and would otherwise drop them, leaving the console's content under
+     a notch. Only the bottom value differs from base. */
+  padding:
+    0
+    max(var(--space-md), env(safe-area-inset-right))
+    calc(var(--space-xl) + env(safe-area-inset-bottom))
+    max(var(--space-md), env(safe-area-inset-left));
 }
 
 /* Register bar. No h1 span rule: unlike the source's standalone <h1>Metronome
@@ -2588,13 +2816,25 @@ input[type="range"]::-moz-range-track {
   color: #fff;
 }
 
-/* Two-column console. #masthead (not h1) is the grid-area target — Task 3
-   wraps the title in a <header id="masthead">, so the grid areas must target
-   the wrapper. The parameter column gets the extra room: the readout only
-   needs to fit three big digits, the stepper rows need everything they can
-   get. Fixed-position elements (the quick-select popup, appended to
-   document.body) don't participate in grid layout, so this doesn't disturb it. */
-@media (min-width: 880px) {
+/* Two-column console. This is the one theme that restates the shared wide
+   layout (@layer components, "Responsive skeleton") for itself, because the
+   console reads as a tighter instrument panel than the shared gap allows:
+   flush gutters, a harder column ratio, and every band margin collapsed. The
+   row order matches the shared skeleton exactly — masthead, topbar, then
+   #tabs / #patternEditor / .panel / #controls down column one — so the two
+   never disagree about where the pattern editor sits.
+
+   #masthead (not h1) is the grid-area target — Task 3 wraps the title in a
+   <header id="masthead">, so the grid areas must target the wrapper. The
+   parameter column gets the extra room: the readout only needs to fit three
+   big digits, the stepper rows need everything they can get. Fixed-position
+   elements (the quick-select popup, appended to document.body) don't
+   participate in grid layout, so this doesn't disturb it.
+
+   The breakpoint matches the shared skeleton's 900px rather than the 880px it
+   used before, which sat exactly at the theme's own --content-max-width and
+   so opened a two-column grid into zero spare width. */
+@media (min-width: 900px) {
   :root[data-theme="grid-console"] body {
     display: grid;
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
@@ -2602,18 +2842,17 @@ input[type="range"]::-moz-range-track {
     align-items: start;
   }
 
-  :root[data-theme="grid-console"] #masthead { grid-area: 1 / 1 / 2 / 3; margin-bottom: 0; }
-  :root[data-theme="grid-console"] #topbar   { grid-area: 2 / 1 / 3 / 3; margin-bottom: 0; }
-  :root[data-theme="grid-console"] #tabs     { grid-area: 3 / 1 / 4 / 2; margin-bottom: 0; }
-  :root[data-theme="grid-console"] .panel    { grid-area: 4 / 1 / 5 / 2; margin-bottom: 0; }
-  :root[data-theme="grid-console"] #controls { grid-area: 5 / 1 / 6 / 2; }
+  :root[data-theme="grid-console"] #masthead       { grid-area: 1 / 1 / 2 / 3; margin-bottom: 0; }
+  :root[data-theme="grid-console"] #topbar         { grid-area: 2 / 1 / 3 / 3; margin-bottom: 0; }
+  :root[data-theme="grid-console"] #tabs           { grid-area: 3 / 1 / 4 / 2; margin-bottom: 0; }
+  :root[data-theme="grid-console"] #patternEditor  { grid-area: 4 / 1 / 5 / 2; margin-bottom: 0; }
+  :root[data-theme="grid-console"] .panel          { grid-area: 5 / 1 / 6 / 2; margin-bottom: 0; }
 
-  :root[data-theme="grid-console"] #heroZone {
-    grid-area: 3 / 2 / 6 / 3;
-    position: sticky;
-    top: var(--space-xl);
-    margin-bottom: 0;
-  }
+  /* One area for the readout-plus-transport wrapper, for the same reason the
+     shared skeleton uses one: placed separately they size this grid's rows.
+     The console's transport is a full-width bar (#controls is display:block
+     in this theme), so it reads as the base of the readout stack. */
+  :root[data-theme="grid-console"] #stage { grid-area: 3 / 2 / 6 / 3; }
 }
 
 }
@@ -2696,6 +2935,7 @@ input[type="range"]::-moz-range-track {
     <button class="tab-btn" data-tab="practice" type="button">Practice</button>
   </div>
 
+  <div id="stage">
   <div id="heroZone">
     <div class="hero-frame">
       <div id="beatFlash" aria-hidden="true"></div>
@@ -2707,6 +2947,11 @@ input[type="range"]::-moz-range-track {
     </div>
     <div id="rampReadout" class="readout" hidden></div>
     <div id="practiceReadout" class="readout" hidden></div>
+  </div>
+
+  <div id="controls">
+    <button id="startStop" type="button">Start</button>
+  </div>
   </div>
 
   <section id="patternEditor" aria-label="Rhythm pattern">
@@ -2895,10 +3140,6 @@ input[type="range"]::-moz-range-track {
     </div>
   </div>
 
-  <div id="controls">
-    <button id="startStop" type="button">Start</button>
-  </div>
-
 <script>
 // LOGIC-BEGIN
 function clampBpm(bpm) {
@@ -2938,6 +3179,24 @@ function patternSlotCount(beats, division) {
 
 function patternSlotIndex(beat, slot, division) {
   return beat * division + slot;
+}
+
+// Vertical arrow-key movement in the wrapped grid. Beat blocks flow side by
+// side and wrap, so "the block below" is beatsPerLine beats away, not one —
+// the caller measures that count from the laid-out DOM and passes it in, which
+// is what keeps this pure. Out-of-range targets return the index unchanged
+// rather than clamping to the first or last slot: on the top and bottom lines
+// the honest answer is "nothing above/below", and sliding sideways to an
+// unrelated slot would move the user's edit target without them asking.
+function patternVerticalNeighbor(index, division, beats, beatsPerLine, direction) {
+  const perLine = Number.isFinite(beatsPerLine) && beatsPerLine >= 1
+    ? Math.floor(beatsPerLine)
+    : 1;
+  const beat = Math.floor(index / division);
+  const slot = index % division;
+  const target = beat + (direction < 0 ? -perLine : perLine);
+  if (target < 0 || target >= beats) return index;
+  return patternSlotIndex(target, slot, division);
 }
 
 function clampPatternValue(value, fallback) {
@@ -3625,7 +3884,16 @@ function scheduleBeat(time) {
     if (practiceSegment !== null) updatePracticeReadout(practiceSegment);
   }, Math.max(0, (time - ctx.currentTime) * 1000));
 
-  beatIndexInBar = (beatIndexInBar + 1) % pattern.beats;
+  // A practice break does not consume a bar position. The break already
+  // refuses to read the pattern at all (see the slot loop above, which mutes
+  // every slot but the beat and pushes -1 to the playhead), so letting its
+  // beats advance this counter rotated the bar underneath the following phase
+  // and started it mid-bar — with a 4-beat pattern and a 2-beat break, the
+  // fast phase used to open on bar position 2. Freezing the counter across the
+  // break resumes the next phase where the previous one ended, and since a
+  // phase is always a whole number of bars (barsToBeats multiplies barsPerPhase
+  // by pattern.beats), that is the top of the bar.
+  if (!isPracticeBreak) beatIndexInBar = (beatIndexInBar + 1) % pattern.beats;
   advanceModeAfterBeat();
   nextNoteTime = time + beatIntervalSeconds(bpm);
 }
@@ -3882,10 +4150,6 @@ function attachQuickSelect(inputEl, presets, onSelect) {
   });
 }
 
-// Above this many slots the grid switches to compact sizing. Chosen so a
-// conventional pattern (up to 16 beats of sixteenths) stays full size.
-const PATTERN_COMPACT_THRESHOLD = 128;
-
 const LEVEL_CLASSES = ['level-muted', 'level-quiet', 'level-normal', 'level-accent'];
 const LEVEL_NAMES = ['muted', 'quiet', 'normal', 'accented'];
 
@@ -3943,10 +4207,6 @@ function renderPatternGrid() {
     fragment.appendChild(row);
   }
 
-  grid.classList.toggle(
-    'compact',
-    patternSlotCount(pattern.beats, pattern.division) > PATTERN_COMPACT_THRESHOLD
-  );
   grid.innerHTML = '';
   grid.appendChild(fragment);
   updatePatternSlotCountLabel();
@@ -4068,6 +4328,24 @@ function bindPatternEditor() {
     persistState();
   }
 
+  // Resolves Up/Down against the wrapped layout. How many beat blocks share a
+  // line is counted from where the blocks actually landed rather than derived
+  // from widths and gaps, so it stays correct whatever padding, the column gap
+  // or a scrollbar takes out of the available width, and it needs no notion of
+  // which breakpoint produced the current layout. The forced layout read costs
+  // one Up/Down keypress, not one frame — nothing on the playback path calls
+  // this.
+  function verticalNeighbor(index, direction) {
+    const pattern = state.topBar.pattern;
+    const rows = grid.querySelectorAll('.pattern-row');
+    let perLine = 0;
+    if (rows.length > 0) {
+      const top = rows[0].offsetTop;
+      while (perLine < rows.length && rows[perLine].offsetTop === top) perLine++;
+    }
+    return patternVerticalNeighbor(index, pattern.division, pattern.beats, perLine, direction);
+  }
+
   // Moves the single tabbable slot. Focusing inside the scroll box scrolls it,
   // which is wanted here — unlike the playhead, which deliberately never
   // scrolls, because this movement is the user's own and that one is not.
@@ -4112,8 +4390,12 @@ function bindPatternEditor() {
     let next = null;
     if (e.key === 'ArrowRight') next = Math.min(total - 1, index + 1);
     else if (e.key === 'ArrowLeft') next = Math.max(0, index - 1);
-    else if (e.key === 'ArrowDown') next = Math.min(total - 1, index + pattern.division);
-    else if (e.key === 'ArrowUp') next = Math.max(0, index - pattern.division);
+    // Down/Up follow the wrapped layout, not the beat order: with blocks side
+    // by side the next beat is to the right, so stepping one beat here would
+    // send the caret sideways under a key that promises vertical movement.
+    // When one block fills a line the jump is one beat again, as it always was.
+    else if (e.key === 'ArrowDown') next = verticalNeighbor(index, 1);
+    else if (e.key === 'ArrowUp') next = verticalNeighbor(index, -1);
     else if (e.key === 'Home') next = rowStart;
     else if (e.key === 'End') next = Math.min(total - 1, rowStart + pattern.division - 1);
     else return;
@@ -4182,9 +4464,21 @@ const BPM_FIELD_MAP = {
   practiceBaseBpm: { key: 'practice', prop: 'baseBpm', updatesHero: true },
 };
 
-document.querySelectorAll('.tapTempo').forEach((btn) => {
-  const input = btn.previousElementSibling;
-  const target = BPM_FIELD_MAP[input.id];
+// Driven from BPM_FIELD_MAP rather than from the .tapTempo buttons. Tap used to
+// reach its field with btn.previousElementSibling, and that stopped being the
+// input the moment attachQuickSelect began inserting its chevron directly after
+// it: the element before Tap became that button, whose id is '', so
+// BPM_FIELD_MAP[''] was undefined and every Tap on every tab threw on
+// target.key instead of setting a tempo. The map already names every field Tap
+// may write to, so resolving each one by id removes the positional assumption
+// instead of working around it, and stays correct however the controls inside a
+// .stepper-row are reordered. A field with no Tap button in its row is skipped.
+Object.keys(BPM_FIELD_MAP).forEach((inputId) => {
+  const input = document.getElementById(inputId);
+  const row = input && input.closest('.stepper-row');
+  const btn = row && row.querySelector('.tapTempo');
+  if (!btn) return;
+  const target = BPM_FIELD_MAP[inputId];
 
   btn.addEventListener('click', () => {
     const now = Date.now();
@@ -4199,7 +4493,7 @@ document.querySelectorAll('.tapTempo').forEach((btn) => {
 
     state[target.key][target.prop] = bpm;
     input.value = bpm;
-    const range = document.getElementById(input.id + 'Range');
+    const range = document.getElementById(inputId + 'Range');
     if (range) range.value = bpm;
     if (target.updatesHero) updateHeroBpm();
     persistState();

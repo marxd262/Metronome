@@ -550,3 +550,36 @@ test('findPlayheadEntry reads a wrapped ring by time, not by position', () => {
   assert.equal(findPlayheadEntry(ring, 3.5, 1, 1).slotIndex, 3);
   assert.equal(findPlayheadEntry(ring, 2.5, 1, 1).slotIndex, 2);
 });
+
+test('patternVerticalNeighbor jumps one wrapped line and keeps the slot column', () => {
+  const { patternVerticalNeighbor } = loadLogic(['patternVerticalNeighbor']);
+  // beats=4, division=4, two beat blocks per visual line:
+  //   1 [0..3]   2 [4..7]
+  //   3 [8..11]  4 [12..15]
+  assert.equal(patternVerticalNeighbor(0, 4, 4, 2, 1), 8);
+  assert.equal(patternVerticalNeighbor(6, 4, 4, 2, 1), 14);
+  assert.equal(patternVerticalNeighbor(14, 4, 4, 2, -1), 6);
+  assert.equal(patternVerticalNeighbor(11, 4, 4, 2, -1), 3);
+});
+
+test('patternVerticalNeighbor stays put when the target line does not exist', () => {
+  const { patternVerticalNeighbor } = loadLogic(['patternVerticalNeighbor']);
+  assert.equal(patternVerticalNeighbor(0, 4, 4, 2, -1), 0);
+  assert.equal(patternVerticalNeighbor(13, 4, 4, 2, 1), 13);
+  // beats=5, beatsPerLine=2 leaves a partial last line holding only beat 5.
+  // Beat 3 has a neighbour below it; beat 4 does not.
+  assert.equal(patternVerticalNeighbor(9, 4, 5, 2, 1), 17);
+  assert.equal(patternVerticalNeighbor(13, 4, 5, 2, 1), 13);
+});
+
+test('patternVerticalNeighbor degenerates to one beat when a line holds one block', () => {
+  const { patternVerticalNeighbor } = loadLogic(['patternVerticalNeighbor']);
+  assert.equal(patternVerticalNeighbor(2, 4, 4, 1, 1), 6);
+  assert.equal(patternVerticalNeighbor(6, 4, 4, 1, -1), 2);
+});
+
+test('patternVerticalNeighbor treats a junk line count as a single block', () => {
+  const { patternVerticalNeighbor } = loadLogic(['patternVerticalNeighbor']);
+  assert.equal(patternVerticalNeighbor(2, 4, 4, 0, 1), 6);
+  assert.equal(patternVerticalNeighbor(2, 4, 4, NaN, 1), 6);
+});

@@ -195,10 +195,32 @@ the editor — its labels, `<select>`, number inputs and `.stepper-row` — do
 still theme, through the same selectors every other field uses. Beyond those
 shared selectors the editor reads base-layer scales (`--space-*`,
 `--text-xs`, `--duration-fast`, `--ease-standard`,
-`--font-weight-semibold`), tokens the themes already define, and three of
+`--font-weight-semibold`), tokens the themes already define, and two of
 its own declared on `#patternEditor` (`--pattern-slot-size`,
-`--pattern-slot-size-compact`, `--pattern-grid-max-height`) — so it adds no
-new entries to `REQUIRED_TOKENS`. `themes` holds one
+`--pattern-grid-max-height`) — so it adds no new entries to
+`REQUIRED_TOKENS`. A slot is that one size at every beat and division
+count. The editor originally shrank slots past a slot-count threshold
+(`--pattern-slot-size-compact`, `#patternGrid.compact`, and a
+`PATTERN_COMPACT_THRESHOLD` constant, all now removed) so that a large
+pattern could not push the Start button off screen; the transport now sits
+above the editor, and the grid is capped at `--pattern-grid-max-height` and
+scrolls on both axes, so a large pattern scrolls instead of resizing the
+cells the user is aiming at. `#patternGrid` wraps rather than stacking:
+beat blocks flow across the width and wrap onto the next line, so the only
+thing that still scrolls sideways is a single beat wider than the whole
+grid. Blocks are uniform width, so wrapped lines self-align into columns
+with no grid template, and `scrollbar-gutter: stable` keeps the
+blocks-per-line count from changing when the vertical scrollbar appears.
+Because a beat block no longer spans the grid, the `ArrowUp`/`ArrowDown`
+keys cannot mean "one beat" any more — they run through the pure LOGIC
+function `patternVerticalNeighbor`, which jumps by a blocks-per-line count
+the handler measures from the laid-out DOM (`offsetTop`, not a width
+calculation) and returns the index unchanged when the target line does not
+exist. `.playhead-row` correspondingly now marks one beat rather than a
+screen row. The design spec
+(`docs/superpowers/specs/2026-09-09-rhythm-pattern-editor-design.md`) still
+describes the old two-size behaviour — it records the original reasoning,
+not current behaviour. Don't reintroduce size tiers. `themes` holds one
 `:root[data-theme="…"]` token block per theme, plus that theme's
 structural overrides (hero element order, content max-width, and, for
 Grid Console, the page's column count). `motion` holds
