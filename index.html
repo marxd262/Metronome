@@ -3241,17 +3241,36 @@ function patternLevelAt(pattern, beat, slot) {
   return Number.isInteger(raw) ? raw : LEVEL_NORMAL;
 }
 
-// The four presets are the same roster the removed Subdivision <select>
-// offered. They set division only; beats is never a preset's business.
+// Each preset describes the rhythm of ONE beat and is repeated across every
+// beat: `slots` has `division` entries, 1 for a slot that sounds and 0 for
+// one that rests. `glyph` is the note value the division represents and
+// prefixes the option text in the preset <select>. Four presets rest on
+// their own first slot; those bars carry no accent anywhere, which is the
+// point of practising them — see the design spec.
 const PATTERN_PRESETS = [
-  { name: 'none',       division: 1 },
-  { name: 'eighths',    division: 2 },
-  { name: 'triplets',   division: 3 },
-  { name: 'sixteenths', division: 4 },
+  { name: 'quarter',                    division: 1, glyph: '♩',       label: 'Quarter',              slots: [1] },
+  { name: 'eighths',                    division: 2, glyph: '♫',       label: 'Eighths',              slots: [1, 1] },
+  { name: 'offbeat-eighths',            division: 2, glyph: '♫',       label: 'Offbeat eighths',      slots: [0, 1] },
+  { name: 'triplets',                   division: 3, glyph: '♪³', label: 'Triplet',              slots: [1, 1, 1] },
+  { name: 'triplet-first-two',          division: 3, glyph: '♪³', label: 'Triplet, first two',   slots: [1, 1, 0] },
+  { name: 'triplet-outer',              division: 3, glyph: '♪³', label: 'Triplet, outer two',   slots: [1, 0, 1] },
+  { name: 'triplet-last-two',           division: 3, glyph: '♪³', label: 'Triplet, last two',    slots: [0, 1, 1] },
+  { name: 'triplet-middle',             division: 3, glyph: '♪³', label: 'Triplet, middle only', slots: [0, 1, 0] },
+  { name: 'sixteenths',                 division: 4, glyph: '♬',       label: 'Sixteenths',           slots: [1, 1, 1, 1] },
+  { name: 'offbeat-sixteenths',         division: 4, glyph: '♬',       label: 'Sixteenth offbeats',   slots: [0, 1, 0, 1] },
+  { name: 'gallop',                     division: 4, glyph: '♬',       label: 'Gallop',               slots: [1, 1, 1, 0] },
+  { name: 'reverse-gallop',             division: 4, glyph: '♬',       label: 'Reverse gallop',       slots: [1, 0, 1, 1] },
+  { name: 'sixteenth-eighth-sixteenth', division: 4, glyph: '♬',       label: '16th-8th-16th',        slots: [1, 1, 0, 1] },
+  { name: 'dotted-eighth-sixteenth',    division: 4, glyph: '♬',       label: 'Dotted eighth + 16th', slots: [1, 0, 0, 1] },
+  { name: 'sixteenth-dotted-eighth',    division: 4, glyph: '♬',       label: '16th + dotted eighth', slots: [1, 1, 0, 0] },
 ];
 
+function presetByName(name) {
+  return PATTERN_PRESETS.find((entry) => entry.name === name) || null;
+}
+
 function divisionForPreset(preset) {
-  const found = PATTERN_PRESETS.find((entry) => entry.name === preset);
+  const found = presetByName(preset);
   return found ? found.division : null;
 }
 
@@ -3265,11 +3284,14 @@ function defaultLevelForSlot(beat, slot) {
   return beat === 0 ? LEVEL_ACCENT : LEVEL_NORMAL;
 }
 
-function buildPresetLevels(beats, division) {
+// Division comes from the template's own length, so a roster entry cannot
+// disagree with itself about how many slots a beat has.
+function buildPresetLevels(beats, preset) {
+  const slots = preset && Array.isArray(preset.slots) ? preset.slots : [1];
   const levels = [];
   for (let beat = 0; beat < beats; beat++) {
-    for (let slot = 0; slot < division; slot++) {
-      levels.push(defaultLevelForSlot(beat, slot));
+    for (let slot = 0; slot < slots.length; slot++) {
+      levels.push(slots[slot] ? defaultLevelForSlot(beat, slot) : LEVEL_MUTED);
     }
   }
   return levels;
@@ -4276,18 +4298,18 @@ function bindPatternEditor() {
   }
 
   function setPreset(name) {
-    const target = divisionForPreset(name);
-    if (target === null) {
+    const entry = presetByName(name);
+    if (entry === null) {
       // "Custom" is a label the app applies, never a choice that changes the
       // grid; snap the control back to whatever the pattern actually is.
       preset.value = state.topBar.pattern.preset;
       return;
     }
     const pattern = state.topBar.pattern;
-    pattern.division = target;
-    pattern.preset = name;
-    pattern.levels = buildPresetLevels(pattern.beats, target);
-    division.value = target;
+    pattern.division = entry.division;
+    pattern.preset = entry.name;
+    pattern.levels = buildPresetLevels(pattern.beats, entry);
+    division.value = entry.division;
     afterPatternResize();
   }
 

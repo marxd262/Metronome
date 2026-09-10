@@ -361,35 +361,49 @@ test('patternLevelAt reads a slot and defaults a missing one to normal', () => {
   assert.equal(patternLevelAt({ beats: 1, division: 1, levels: [] }, 0, 0), 2);
 });
 
-test('divisionForPreset maps the four preset names to divisions', () => {
+test('every preset carries one template entry per slot of its division', () => {
+  const { PATTERN_PRESETS } = loadLogic(['PATTERN_PRESETS']);
+  assert.equal(PATTERN_PRESETS.length, 15);
+  const names = new Set();
+  for (const entry of PATTERN_PRESETS) {
+    assert.equal(entry.slots.length, entry.division, entry.name);
+    assert.ok(entry.slots.every((s) => s === 0 || s === 1), entry.name);
+    assert.ok(entry.slots.includes(1), entry.name + ' is entirely silent');
+    assert.notEqual(entry.name, 'custom');
+    assert.equal(names.has(entry.name), false, 'duplicate name ' + entry.name);
+    names.add(entry.name);
+    assert.ok(entry.glyph.length > 0, entry.name);
+    assert.ok(entry.label.length > 0, entry.name);
+  }
+});
+
+test('divisionForPreset maps roster names to divisions and rejects the rest', () => {
   const { divisionForPreset } = loadLogic(['divisionForPreset']);
-  assert.equal(divisionForPreset('none'), 1);
-  assert.equal(divisionForPreset('eighths'), 2);
-  assert.equal(divisionForPreset('triplets'), 3);
-  assert.equal(divisionForPreset('sixteenths'), 4);
+  assert.equal(divisionForPreset('quarter'), 1);
+  assert.equal(divisionForPreset('offbeat-eighths'), 2);
+  assert.equal(divisionForPreset('triplet-middle'), 3);
+  assert.equal(divisionForPreset('gallop'), 4);
   assert.equal(divisionForPreset('custom'), null);
+  assert.equal(divisionForPreset('none'), null);
   assert.equal(divisionForPreset('nonsense'), null);
 });
 
-test('presetForDivision round-trips the four presets and calls the rest custom', () => {
-  const { presetForDivision, divisionForPreset } = loadLogic(['presetForDivision', 'divisionForPreset']);
-  for (const name of ['none', 'eighths', 'triplets', 'sixteenths']) {
-    assert.equal(presetForDivision(divisionForPreset(name)), name);
+test('buildPresetLevels mutes resting slots and accents only the first beat', () => {
+  const { buildPresetLevels, presetByName } = loadLogic(['buildPresetLevels', 'presetByName']);
+  assert.deepEqual(buildPresetLevels(4, presetByName('quarter')), [3, 2, 2, 2]);
+  assert.deepEqual(buildPresetLevels(2, presetByName('triplets')), [3, 1, 1, 2, 1, 1]);
+  assert.deepEqual(buildPresetLevels(2, presetByName('offbeat-eighths')), [0, 1, 0, 1]);
+  assert.deepEqual(buildPresetLevels(2, presetByName('gallop')), [3, 1, 1, 0, 2, 1, 1, 0]);
+});
+
+test('buildPresetLevels sizes the array and places at most one accent', () => {
+  const { buildPresetLevels, PATTERN_PRESETS } = loadLogic(['buildPresetLevels', 'PATTERN_PRESETS']);
+  for (const entry of PATTERN_PRESETS) {
+    const levels = buildPresetLevels(7, entry);
+    assert.equal(levels.length, 7 * entry.division, entry.name);
+    const accents = levels.filter((l) => l === 3).length;
+    assert.equal(accents, entry.slots[0] ? 1 : 0, entry.name);
   }
-  assert.equal(presetForDivision(5), 'custom');
-  assert.equal(presetForDivision(64), 'custom');
-});
-
-test('buildPresetLevels accents only the first slot of the first beat', () => {
-  const { buildPresetLevels } = loadLogic(['buildPresetLevels']);
-  assert.deepEqual(buildPresetLevels(4, 1), [3, 2, 2, 2]);
-  assert.deepEqual(buildPresetLevels(2, 3), [3, 1, 1, 2, 1, 1]);
-});
-
-test('buildPresetLevels produces exactly beats times division entries', () => {
-  const { buildPresetLevels } = loadLogic(['buildPresetLevels']);
-  assert.equal(buildPresetLevels(7, 5).length, 35);
-  assert.equal(buildPresetLevels(7, 5).filter((l) => l === 3).length, 1);
 });
 
 test('resizePatternLevels is the identity when nothing changes', () => {
@@ -471,16 +485,26 @@ test('migrateLegacyPattern passes an already-migrated save through untouched', (
 
 test('migrateLegacyPattern maps each legacy subdivision name to a division', () => {
   const { migrateLegacyPattern } = loadLogic(['migrateLegacyPattern']);
-  const cases = { none: 1, eighths: 2, triplets: 3, sixteenths: 4 };
-  for (const [name, division] of Object.entries(cases)) {
+  // Keys are the literal strings an old save's topBar.subdivision could hold.
+  // 'none' still resolves to division 1 (divisionForPreset falls back to 1
+  // for a name the roster no longer has), but presetForDivision now names
+  // division 1 'quarter' — the roster's replacement for the old 'none' —
+  // not the legacy string itself.
+  const cases = {
+    none: { division: 1, preset: 'quarter' },
+    eighths: { division: 2, preset: 'eighths' },
+    triplets: { division: 3, preset: 'triplets' },
+    sixteenths: { division: 4, preset: 'sixteenths' },
+  };
+  for (const [name, expected] of Object.entries(cases)) {
     const saved = {
       topBar: { subdivision: name },
       metronome: { timeSigNum: 4, accentPattern: [true, false, false, false] },
     };
     const result = migrateLegacyPattern(saved, PATTERN_DEFAULTS);
-    assert.equal(result.division, division);
-    assert.equal(result.preset, name);
-    assert.equal(result.levels.length, 4 * division);
+    assert.equal(result.division, expected.division);
+    assert.equal(result.preset, expected.preset);
+    assert.equal(result.levels.length, 4 * expected.division);
   }
 });
 
