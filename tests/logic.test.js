@@ -559,6 +559,8 @@ test('migrateLegacyPattern carries the metronome beats and accents across', () =
   assert.equal(result.beats, 3);
   //  beat 1 accented, beat 2 normal, beat 3 accented; every off-slot quiet
   assert.deepEqual(result.levels, [3, 1, 2, 1, 3, 1]);
+  //  beat 3 is accented too, which no eighths template produces
+  assert.equal(result.preset, 'custom');
 });
 
 test('migrateLegacyPattern falls back when the metronome section is missing', () => {
@@ -567,6 +569,29 @@ test('migrateLegacyPattern falls back when the metronome section is missing', ()
   assert.equal(result.beats, 4);
   assert.equal(result.division, 3);
   assert.equal(result.levels.length, 12);
+});
+
+test('migrateLegacyPattern reads legacy names through its own map, not the roster', () => {
+  const { migrateLegacyPattern } = loadLogic(['migrateLegacyPattern']);
+  //  'quarter' is a preset name but was never a Subdivision <select> value,
+  //  so migration must not resolve it — it falls back to division 1.
+  const saved = {
+    topBar: { subdivision: 'quarter' },
+    metronome: { timeSigNum: 4, accentPattern: [true, false, false, false] },
+  };
+  assert.equal(migrateLegacyPattern(saved, PATTERN_DEFAULTS).division, 1);
+  //  'gallop' likewise: a roster name, never a legacy value.
+  const other = {
+    topBar: { subdivision: 'gallop' },
+    metronome: { timeSigNum: 4, accentPattern: [true, false, false, false] },
+  };
+  assert.equal(migrateLegacyPattern(other, PATTERN_DEFAULTS).division, 1);
+});
+
+test('LEGACY_SUBDIVISION_DIVISIONS holds exactly the four retired values', () => {
+  const { LEGACY_SUBDIVISION_DIVISIONS } = loadLogic(['LEGACY_SUBDIVISION_DIVISIONS']);
+  assert.deepEqual(LEGACY_SUBDIVISION_DIVISIONS, { none: 1, eighths: 2, triplets: 3, sixteenths: 4 });
+  assert.equal(Object.isFrozen(LEGACY_SUBDIVISION_DIVISIONS), true);
 });
 
 function entry(time, slotIndex, runId, generation) {

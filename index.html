@@ -3363,6 +3363,14 @@ function normalizePattern(pattern) {
   return { beats: beats, division: division, preset: preset, levels: levels };
 }
 
+// The four values the retired Subdivision <select> could hold. That control
+// no longer exists, so this map must never gain entries. It is deliberately
+// separate from PATTERN_PRESETS: migration used to read the roster, which
+// meant renaming a preset silently downgraded an old save's division.
+const LEGACY_SUBDIVISION_DIVISIONS = Object.freeze({
+  none: 1, eighths: 2, triplets: 3, sixteenths: 4,
+});
+
 // Runs once per load. A save written before the pattern editor existed has its
 // meter and accents rebuilt from the old fields rather than being reset to the
 // default — Metronome is the source, because three per-mode patterns are
@@ -3374,7 +3382,7 @@ function migrateLegacyPattern(parsed, defaults) {
   if (!topBar || typeof topBar !== 'object') return fallback;
   if (topBar.pattern && typeof topBar.pattern === 'object') return normalizePattern(topBar.pattern);
 
-  const division = divisionForPreset(topBar.subdivision) || 1;
+  const division = LEGACY_SUBDIVISION_DIVISIONS[topBar.subdivision] || 1;
   const legacy = parsed.metronome && typeof parsed.metronome === 'object' ? parsed.metronome : {};
   const beats = clampPatternBeats(legacy.timeSigNum);
   const accents = Array.isArray(legacy.accentPattern) ? legacy.accentPattern : [];
