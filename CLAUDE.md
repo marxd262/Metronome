@@ -37,15 +37,15 @@ required. There is no lint step.
    segment/position math, tap-tempo averaging, settings
    serialize/deserialize, and the whole rhythm-pattern model: slot
    indexing, level cycling, preset templates and level building, pattern
-   resize,
-   normalize and legacy migration, and the playhead entry scan). Every
-   function here must stay a pure function of its arguments — no reads
-   of `state`, the DOM, or module-level variables — because
+   resize, normalize and legacy migration, and the playhead entry scan).
+   Every function here must stay a pure function of its arguments — no
+   reads of `state`, the DOM, or module-level variables — because
    `tests/loadLogic.js` extracts this exact block via regex and evals it
    standalone under Node to run `tests/logic.test.js` against it. **Any
    new calculation logic belongs here, written pure, with tests added to
    `tests/logic.test.js`.** This is what makes a single-file, build-free
    app unit-testable at all.
+
    A preset is not a division shortcut: each entry in `PATTERN_PRESETS`
    carries a `slots` template describing which slots of one beat sound and
    which rest, and `buildPresetLevels(beats, preset)` repeats that template
@@ -88,8 +88,7 @@ DEFAULT_STATE)`, which rebuilds the pattern from the old
 frozen map of the four values that retired `<select>` could hold, kept
 separate from `PATTERN_PRESETS` so that renaming a preset cannot silently
 downgrade an old save's division — plus the Metronome tab's `timeSigNum`
-and
-`accentPattern` — Metronome, because three per-mode patterns collapsed
+and `accentPattern` — Metronome, because three per-mode patterns collapsed
 into one and it's the tab a user is likeliest to have set. Note that only
 the branch finding an already-migrated `topBar.pattern`, and the two
 missing/malformed fallbacks, route through `normalizePattern`; the

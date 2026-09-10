@@ -683,11 +683,16 @@ Open `index.html` directly in a browser. In DevTools, run
 5. Pressing Start plays each of those and the muted slots are silent.
 6. Clicking any slot flips the dropdown to Custom. Clicking it back to its
    previous level flips the dropdown back to the preset's name.
-7. With Sixteenths selected, raising Beats from 4 to 5 flips the dropdown
-   to Custom, because the new beat's off-slots are filled by the resize
-   rule rather than the template.
-8. Typing 3 into Division while on Quarter names the pattern Custom, not
-   Triplet — the levels were carried over, not rebuilt.
+7. With Sixteenths selected, raising Beats from 4 to 5 leaves the
+   dropdown reading Sixteenths: every slot in its template sounds, so the
+   resize fill matches `buildPresetLevels(5, sixteenths)` exactly. Doing
+   the same with Gallop selected instead flips the dropdown to Custom:
+   Gallop rests its fourth slot, but the resize fill leaves the new
+   beat's off-slots quiet rather than muted, so the grid no longer
+   matches the template.
+8. Typing 3 into Division while on Quarter names the pattern Triplet, not
+   Custom — Quarter's carried-over downbeats resize into exactly
+   `buildPresetLevels(4, triplets)`.
 9. Reload the page. The dropdown comes back showing whatever it showed
    before, not a blank box.
 10. Run
