@@ -36,7 +36,8 @@ required. There is no lint step.
    (BPM/percent clamping, ramp stepping math, practice phase-sequence and
    segment/position math, tap-tempo averaging, settings
    serialize/deserialize, and the whole rhythm-pattern model: slot
-   indexing, level cycling, preset and level building, pattern resize,
+   indexing, level cycling, preset templates and level building, pattern
+   resize,
    normalize and legacy migration, and the playhead entry scan). Every
    function here must stay a pure function of its arguments — no reads
    of `state`, the DOM, or module-level variables — because
@@ -45,6 +46,16 @@ required. There is no lint step.
    new calculation logic belongs here, written pure, with tests added to
    `tests/logic.test.js`.** This is what makes a single-file, build-free
    app unit-testable at all.
+   A preset is not a division shortcut: each entry in `PATTERN_PRESETS`
+   carries a `slots` template describing which slots of one beat sound and
+   which rest, and `buildPresetLevels(beats, preset)` repeats that template
+   across every beat, mapping a resting slot to `LEVEL_MUTED` and a
+   sounding one through `defaultLevelForSlot`. Four presets rest on their
+   own first slot and so produce a bar with no accent anywhere; that is
+   deliberate. Because seven presets share division 4, a division no longer
+   identifies a preset — `presetForPattern` names a pattern by comparing
+   its actual level array against every preset's output and answers
+   `custom` when none matches. There is no `presetForDivision`.
 2. **The app block** — DOM wiring, the `state` object, `localStorage`
    persistence, and the Web Audio scheduler. This is untested by design
    (no DOM/Web Audio available under plain Node) and is verified manually
@@ -73,7 +84,11 @@ user's meter and accents. Instead, immediately after `deserializeSettings`,
 the load path overwrites `state.topBar.pattern` with
 `migrateLegacyPattern(parseSavedSettings(savedSettingsJson),
 DEFAULT_STATE)`, which rebuilds the pattern from the old
-`topBar.subdivision` plus the Metronome tab's `timeSigNum` and
+`topBar.subdivision` — resolved through `LEGACY_SUBDIVISION_DIVISIONS`, a
+frozen map of the four values that retired `<select>` could hold, kept
+separate from `PATTERN_PRESETS` so that renaming a preset cannot silently
+downgrade an old save's division — plus the Metronome tab's `timeSigNum`
+and
 `accentPattern` — Metronome, because three per-mode patterns collapsed
 into one and it's the tab a user is likeliest to have set. Note that only
 the branch finding an already-migrated `topBar.pattern`, and the two
@@ -81,6 +96,10 @@ missing/malformed fallbacks, route through `normalizePattern`; the
 legacy-rebuild branch builds its result directly, from parts it has
 already clamped itself. Anything else new still gets the plain merge —
 don't add a second migration unless a field genuinely cannot survive one.
+`normalizePattern` does one narrow repair of its own: a saved `preset` name
+that is no longer in the roster (`none`, from before the roster grew) is
+discarded and re-derived from the levels, because a stale name reaching
+`select.value` matches no `<option>` and renders the dropdown blank.
 
 ### The Web Audio lookahead scheduler and the capture-before-advance pattern
 
