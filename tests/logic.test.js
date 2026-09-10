@@ -526,10 +526,10 @@ test('migrateLegacyPattern passes an already-migrated save through untouched', (
 test('migrateLegacyPattern maps each legacy subdivision name to a division', () => {
   const { migrateLegacyPattern } = loadLogic(['migrateLegacyPattern']);
   // Keys are the literal strings an old save's topBar.subdivision could hold.
-  // 'none' still resolves to division 1 (divisionForPreset falls back to 1
-  // for a name the roster no longer has), but presetForPattern now names
-  // division 1's rebuilt levels 'quarter' — the roster's replacement for the
-  // old 'none' — not the legacy string itself.
+  // 'none' resolves to division 1 because it's an explicit key in
+  // LEGACY_SUBDIVISION_DIVISIONS, not a roster-miss fallback; presetForPattern
+  // still names division 1's rebuilt levels 'quarter' — the roster's
+  // replacement for the old 'none' — not the legacy string itself.
   const cases = {
     none: { division: 1, preset: 'quarter' },
     eighths: { division: 2, preset: 'eighths' },
