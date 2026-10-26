@@ -168,6 +168,11 @@ h1 {
 
 #masthead {
   display: flex;
+  /* The title cannot shrink below its longest unbreakable chunk and the select
+     will not shrink at all, so on a 320px screen the two do not fit one row and
+     the select ended up past the right edge of the page. Wrapping only happens
+     when they genuinely do not fit; wider phones keep the single row. */
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm);
   margin-bottom: var(--space-xl);
@@ -175,7 +180,9 @@ h1 {
 
 #masthead h1 { flex: 1; margin: 0; }
 
-#themeSelect { flex: 0 0 auto; }
+/* margin-left: auto keeps it at the right edge both beside the title and, once
+   the row wraps, on a line of its own. */
+#themeSelect { flex: 0 0 auto; margin-left: auto; }
 
 #topbar {
   display: grid;
@@ -330,7 +337,6 @@ select {
   font: inherit;
   font-size: var(--text-base);
   font-variant-numeric: tabular-nums;
-  outline: none;
   transition: border-color var(--duration-fast) var(--ease-standard);
 }
 
@@ -360,7 +366,6 @@ input[type="range"] {
   height: 4px;
   border-radius: var(--radius-round);
   background: var(--divider);
-  outline: none;
   cursor: pointer;
 }
 
@@ -390,13 +395,17 @@ input[type="range"]::-moz-range-track {
   background: var(--divider);
 }
 
-/* Must stay in THIS layer, below the `outline: none` rules above. Both declare
-   `outline` and both match a focused control, so layer order decides the
-   winner before specificity is ever consulted — parking this ring in `base`
-   let the suppressions in `components` silently override it, which left the
-   range slider with no keyboard focus indicator at all. Here the
-   :focus-visible makes it the more specific rule and it wins, and no theme
-   declares `outline`, so nothing downstream can take it away again.
+/* The keyboard focus ring, and the only place a control's outline is set.
+   These controls used to carry a blanket `outline: none`, which collided with
+   this ring on any focused control: both declare `outline`, so layer order
+   decided the winner before specificity was consulted, and parking the ring in
+   `base` let the suppression in `components` silently erase it — the range
+   slider ended up with no keyboard focus indicator at all.
+   The suppression now exists only for focus that is NOT keyboard focus (a mouse
+   click on a select or slider, where the browser's own ring is noise and the
+   border colour already shows focus), via :focus:not(:focus-visible). Nothing
+   that matches that selector can match the ring, so the two can no longer
+   fight, whatever layer either ends up in. No theme declares `outline`.
    tests/themes.test.js enforces both halves of that. */
 input[type="range"]:focus-visible,
 input[type="number"]:focus-visible,
@@ -404,6 +413,12 @@ select:focus-visible,
 button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+input[type="range"]:focus:not(:focus-visible),
+input[type="number"]:focus:not(:focus-visible),
+select:focus:not(:focus-visible) {
+  outline: none;
 }
 
 .tapTempo {
@@ -675,13 +690,92 @@ button:focus-visible {
     padding: var(--space-sm);
     margin-bottom: var(--space-sm);
     background: var(--panel);
+    /* The header reflows on the editor's own width, not the viewport's: the
+       same box is ~560px beside the hero on a desktop and the full column on a
+       phone, and a viewport breakpoint cannot tell those apart. */
+    container-type: inline-size;
+    container-name: pattern-editor;
   }
 
+  /* Two equal columns that between them use the whole header: Preset over
+     Beats, the slot count and Hide over Division. Each field fills its column,
+     and the gap between the columns is the one thing keeping neighbours apart,
+     so it is wider than the row gap (the label stays closer to its own field
+     than to the one above). The fields are placed by name, not by position, so
+     adding one cannot silently reshuffle the rest. */
   #patternHeader {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "preset meta"
+      "beats  division";
+    column-gap: var(--space-lg);
+    row-gap: var(--space-sm);
+    align-items: end;
+  }
+
+  .pattern-preset { grid-area: preset; }
+  .pattern-beats { grid-area: beats; }
+  .pattern-division { grid-area: division; }
+  #patternMeta { grid-area: meta; justify-self: end; }
+  /* border-box, because Pulse Engine's select adds padding and a border on top
+     of a content-box width, and 100% plus those pushed the whole row past the
+     editor's edge. */
+  #patternHeader select { width: 100%; min-width: 0; box-sizing: border-box; }
+
+  /* Beside the hero on a phone-width editor the columns are narrow enough that
+     the gap shrinks and Preset takes the full row. */
+  @container pattern-editor (max-width: 30rem) {
+    #patternHeader {
+      column-gap: var(--space-sm);
+      grid-template-areas:
+        "preset   preset"
+        "beats    division"
+        "meta     meta";
+    }
+  }
+
+  /* Below ~330px of content a column cannot hold a stepper (three 34px buttons
+     and their gaps) and still leave the input room for two digits, so every
+     field takes a full row instead. The query measures the content box, which
+     is the editor's width minus its padding and border. */
+  @container pattern-editor (max-width: 20.5rem) {
+    #patternHeader {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas:
+        "preset"
+        "beats"
+        "division"
+        "meta";
+    }
+  }
+
+  /* Both steppers keep their "+" beside the input and let the input take
+     whatever the column has left, down to a floor that still shows two digits.
+     Grid Console restates this from the themes layer, which is the only place
+     that can outrank that theme's own .stepper-row. */
+  #patternHeader, .countin-field { --stepper-input-min: 2.5rem; }
+  :is(#patternHeader, .countin-field) .stepper-row { flex-wrap: nowrap; }
+  :is(#patternHeader, .countin-field) .stepper-row input[type="number"] {
+    flex: 1 1 0;
+    min-width: var(--stepper-input-min);
+  }
+
+  /* Count-in lives in the top bar beside Sound. The label is the shared label
+     look; the field itself only has to stack label over stepper like its
+     neighbour and sit on the same baseline. */
+  .countin-field {
     display: flex;
-    gap: var(--space-sm);
-    align-items: flex-end;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: var(--space-2xs);
+  }
+
+  /* Two top-bar cells side by side need ~9rem each for a select and a stepper
+     with a usable input. On a narrower viewport each takes a full row. Placed
+     by class on the child, because every theme restates #topbar's columns and
+     would otherwise win. */
+  @media (max-width: 23rem) {
+    #topbar > .topbar-field { grid-column: 1 / -1; }
   }
 
   /* Deliberately NOT .field-group, even though this is one. Kinetic Type and
@@ -708,7 +802,6 @@ button:focus-visible {
     display: flex;
     align-items: center;
     gap: var(--space-2xs);
-    margin-left: auto;
     font-size: var(--text-xs);
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
@@ -932,7 +1025,9 @@ button:focus-visible {
   .tapTempo,
   .tab-btn,
   #patternToggle,
-  #startStop { min-height: 44px; }
+  #startStop,
+  select,
+  input[type="number"] { min-height: 44px; }
 
   .quick-select-toggle { min-width: 2.25rem; min-height: 44px; }
 
@@ -1030,10 +1125,12 @@ button:focus-visible {
     margin-bottom: 0;
   }
 
-  /* The Sound select and the theme select both sit in grid columns sized for
-     a phone. Left uncapped they stretch to ~500px to hold the word "Click".
-     A cap, not a fixed width, so a longer option label can still grow. */
-  #topbar select,
+  /* The theme select sits alone in the masthead, and uncapped it stretches to
+     hold the word "Classic". A cap, not a fixed width, so a longer option label
+     can still grow. The Sound select used to share this cap, but it now has a
+     peer in the next column (Count-in, which fills its column), and a capped
+     select beside a full-width stepper left the two ragged against the Volume
+     slider below them. */
   #themeSelect { max-width: 16rem; }
 }
 
@@ -1048,7 +1145,7 @@ button:focus-visible {
   --divider:           #2a2a33;
   --text:              #e8e8ec;
   --text-muted:        #9ba0a8;
-  --text-dim:          #666672;
+  --text-dim:          #868692;
   --accent:            #f5a623;
   --accent-beat:       #e5484d;
   --on-accent:         #1a1305;
@@ -1082,10 +1179,33 @@ button:focus-visible {
 :root[data-theme="classic"] #heroBpm::before {
   content: "";
   position: absolute;
-  inset: -2.5rem -3.5rem;
+  /* The glow fades to nothing at its own edge, so it looked harmless to let it
+     run 3.5rem past the numeral on each side — but an absolutely positioned
+     box counts as scrollable overflow however transparent it is, and on any
+     phone that made the whole page scroll sideways by a constant amount. The bleed
+     is therefore capped at the room that actually exists beside the numeral
+     (percentages here resolve against #heroBpm's width), less a margin for a
+     scrollbar. Wherever there is room, 3.5rem still wins and the glow is
+     unchanged.
+     Single column: the hero is centred, so the room is half of what the
+     viewport leaves beside it. */
+  inset: -2.5rem max(-3.5rem, calc((100% - 100vw) / 2 + 1rem));
   z-index: -1;
   pointer-events: none;
   background: radial-gradient(ellipse 100% 100% at 50% 50%, var(--accent-glow) 0%, transparent 50%);
+}
+
+/* Two columns (--breakpoint-wide): the hero is no longer centred; it sits
+   against the right-hand gutter, so the room beside it is that gutter plus
+   whatever the centred body leaves once the viewport is wider than its
+   --content-max-width-wide. Measuring from the viewport as above would claim
+   room the hero does not have and leave the 36px overflow in 900–1100px
+   windows. A media query cannot use var(), so 900px mirrors the token, as the
+   Grid Console rules do. */
+@media (min-width: 900px) {
+  :root[data-theme="classic"] #heroBpm::before {
+    inset: -2.5rem max(-3.5rem, calc(-1 * (var(--space-md) - 0.5rem + max(0rem, (100vw - var(--content-max-width-wide)) / 2))));
+  }
 }
 
 :root[data-theme="pulse-engine"] {
@@ -1095,7 +1215,7 @@ button:focus-visible {
   --divider:           #2e2e38;
   --text:              #edeef2;
   --text-muted:        #a2a7b0;
-  --text-dim:          #52525e;
+  --text-dim:          #838390;
   --accent:            #ffab1f;
   --accent-beat:       #ff4b4b;
   --on-accent:         #1a1000;
@@ -1552,8 +1672,8 @@ button:focus-visible {
   --overlay:           #1e1e23;
   --divider:           #2a2a31;
   --text:              #f4f4f7;
-  --text-muted:        #8b8b96;
-  --text-dim:          #4c4c57;
+  --text-muted:        #93939e;
+  --text-dim:          #7b7c88;
   --accent:            #ffb02e;
   --accent-beat:       #ff5252;
   --on-accent:         #150d00;
@@ -1929,7 +2049,10 @@ button:focus-visible {
 :root[data-theme="kinetic-type"] #startStop {
   width: 100%;
   background: var(--ink);
-  color: #000;
+  /* The page's own near-black on the theme's near-white button, not #000: same
+     contrast, but cool-tinted like everything else here instead of a harsh
+     pure black. */
+  color: var(--bg);
   padding: 1.05rem var(--space-xl);
   font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
@@ -1955,8 +2078,8 @@ button:focus-visible {
   --overlay:           #1f1f28;
   --divider:           rgba(255, 255, 255, 0.07);
   --text:              #f2f3f7;
-  --text-muted:        #9096a0;
-  --text-dim:          #4e4e5c;
+  --text-muted:        #949aa4;
+  --text-dim:          #818190;
   --accent:            #ffa726;
   --accent-beat:       #ff5a5a;
   --on-accent:         #180f00;
@@ -2345,7 +2468,7 @@ button:focus-visible {
   --divider:           #33333d;
   --text:              #e9eaef;
   --text-muted:        #9aa0aa;
-  --text-dim:          #5a5a67;
+  --text-dim:          #7c7c8a;
   --accent:            #ffb020;
   --accent-beat:       #ff4f4f;
   --on-accent:         #170e00;
@@ -2433,7 +2556,22 @@ button:focus-visible {
   border-right: 1px solid var(--rule-faint);
 }
 
-:root[data-theme="grid-console"] #topbar > label:nth-child(2) { border-right: none; }
+/* Count-in is the second cell of the rail and a div, not a label, so it takes
+   the label cell's padding explicitly. It is the last cell in its row, so it
+   carries no right rule; Volume's .full rule below handles its own. */
+:root[data-theme="grid-console"] #topbar > .countin-field {
+  padding: var(--space-2xs) var(--space-xs) var(--space-xs);
+}
+
+/* When the two cells stack (see .topbar-field), the rule that divided them
+   side by side would run down the edge of the Sound cell. It becomes the
+   rule between the stacked cells instead. */
+@media (max-width: 23rem) {
+  :root[data-theme="grid-console"] #topbar > label.topbar-field {
+    border-right: none;
+    border-bottom: 1px solid var(--rule-faint);
+  }
+}
 
 :root[data-theme="grid-console"] #topbar .full {
   border-top: 1px solid var(--rule-faint);
@@ -2740,6 +2878,15 @@ button:focus-visible {
   flex: 1 1 4rem; min-width: 3.5rem;
 }
 
+/* Restated for the two steppers that must not wrap or stretch: the rule above
+   lets the row wrap and gives the input a 4rem basis and a 3.5rem floor, and
+   being in the themes layer it outranks the same selectors in components. */
+:root[data-theme="grid-console"] :is(#patternHeader, .countin-field) .stepper-row { flex-wrap: nowrap; }
+:root[data-theme="grid-console"] :is(#patternHeader, .countin-field) .stepper-row input[type="number"] {
+  flex: 1 1 0;
+  min-width: var(--stepper-input-min);
+}
+
 :root[data-theme="grid-console"] .step-group { gap: 3px; }
 
 :root[data-theme="grid-console"] .step-btn,
@@ -2880,6 +3027,86 @@ button:focus-visible {
   :root[data-theme="grid-console"] #stage { grid-area: 3 / 2 / 6 / 3; }
 }
 
+/* ── Joined stepper control (every theme) ──
+   A field's buttons and its input read as one object: a single bordered box,
+   hairline dividers between the parts, no gaps. Before this each part carried
+   its own border and sat 4–8px from the next, so a "+" beside one field looked
+   as close to its neighbour's "−" as to its own input.
+
+   Last in the themes layer on purpose. Every theme restyles these controls
+   with its own border, background and gap, and a themes-layer rule outranks
+   components whatever its specificity, so the only way to share one look is a
+   block that comes after all of them and is at least as specific: the
+   :root[data-theme] prefix matches any theme, and the hover, expanded and
+   first-child rules add a class or pseudo-class each to stay ahead of the
+   per-theme versions of the same states. What follows each `border: 0` is the
+   contract the theme-layer shorthand warning describes — the states that
+   shorthand would otherwise erase, restated here once:
+   - focus: the box takes the accent border, because an input with no border of
+     its own has nothing left to change colour;
+   - the clamp flash: the same, on the box, via :has() — an out-of-range value
+     must still announce itself;
+   - the open quick-select toggle;
+   - the keyboard focus ring, pulled inside (outline-offset) because the box
+     clips overflow to keep its rounded corners and would hide a ring drawn
+     outside. The ring itself is still the shared :focus-visible one;
+     nothing here declares `outline`. */
+:root[data-theme] .stepper-row {
+  --joined-tint: color-mix(in srgb, var(--text) 5%, transparent);
+  gap: 0;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius);
+  background: var(--panel);
+  overflow: hidden;
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+:root[data-theme] .stepper-row .step-group { gap: 0; }
+
+:root[data-theme] .stepper-row :is(.step-btn, .tapTempo, .quick-select-toggle),
+:root[data-theme] .stepper-row > input[type="number"] {
+  border: 0;
+  border-left: 1px solid var(--divider);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  outline-offset: -2px;
+}
+
+/* The first part has no neighbour to its left. Placed after the rule above so
+   it wins the tie at equal specificity. */
+:root[data-theme] .stepper-row > :first-child,
+:root[data-theme] .stepper-row > :first-child > :first-child { border-left: 0; }
+
+:root[data-theme] .stepper-row :is(.step-btn, .tapTempo, .quick-select-toggle):is(:hover, :focus-visible),
+:root[data-theme] .stepper-row .quick-select-toggle[aria-expanded="true"] {
+  background: var(--joined-tint);
+  color: var(--accent);
+  border-left-color: var(--divider);
+}
+
+:root[data-theme] .stepper-row:focus-within { border-color: var(--accent); }
+
+@media (hover: hover) {
+  :root[data-theme] .stepper-row:hover {
+    border-color: color-mix(in srgb, var(--accent) 60%, var(--divider));
+  }
+  :root[data-theme] .stepper-row:focus-within:hover { border-color: var(--accent); }
+}
+
+/* After both, and by specificity ahead of both: it must win while focused. */
+:root[data-theme] .stepper-row:has(input.clamped) { border-color: var(--accent-beat); }
+
+/* Tap wraps to its own full-width row at this width (the shared rule above).
+   Inside the box it needs a rule over it, not the vertical divider it has
+   beside its neighbours. */
+@media (max-width: 420px) {
+  :root[data-theme] .stepper-row > .tapTempo {
+    border-left: 0;
+    border-top: 1px solid var(--divider);
+  }
+}
+
 }
 
 @keyframes pulse-engine-shell-strike {
@@ -2941,13 +3168,23 @@ button:focus-visible {
   </header>
 
   <div id="topbar">
-    <label>Sound
+    <label class="topbar-field">Sound
       <select id="soundStyle">
         <option value="click">Click</option>
         <option value="beep">Beep</option>
         <option value="wood">Wood Block</option>
       </select>
     </label>
+    <!-- A div, not a label: a label wrapping the stepper would forward a click
+         on its text to the first button inside it, the − step. -->
+    <div class="countin-field topbar-field">
+      <label for="countInBeats">Count-in</label>
+      <div class="stepper-row">
+        <button class="step-btn" type="button" data-step-target="countInBeats" data-step="-1">&minus;</button>
+        <input id="countInBeats" type="number" min="0" max="16" step="1" value="0">
+        <button class="step-btn" type="button" data-step-target="countInBeats" data-step="1">&plus;</button>
+      </div>
+    </div>
     <label class="full">
       <span>Volume <span id="volumeValue">80%</span></span>
       <input id="volume" type="range" min="0" max="100" step="1" value="80">
@@ -2985,13 +3222,13 @@ button:focus-visible {
 
   <section id="patternEditor" aria-label="Rhythm pattern">
     <div id="patternHeader">
-      <div class="pattern-field">
+      <div class="pattern-field pattern-preset">
         <label for="patternPreset">Preset</label>
         <!-- Options are built from PATTERN_PRESETS in bindPatternEditor;
              fifteen entries duplicated here would drift from the roster. -->
         <select id="patternPreset"></select>
       </div>
-      <div class="pattern-field">
+      <div class="pattern-field pattern-beats">
         <label for="patternBeats">Beats</label>
         <div class="stepper-row">
           <button class="step-btn" type="button" data-step-target="patternBeats" data-step="-1">&minus;</button>
@@ -2999,7 +3236,7 @@ button:focus-visible {
           <button class="step-btn" type="button" data-step-target="patternBeats" data-step="1">&plus;</button>
         </div>
       </div>
-      <div class="pattern-field">
+      <div class="pattern-field pattern-division">
         <label for="patternDivision">Division</label>
         <div class="stepper-row">
           <button class="step-btn" type="button" data-step-target="patternDivision" data-step="-1">&minus;</button>
@@ -3536,6 +3773,18 @@ function clampPositiveInt(value, fallback) {
   return n;
 }
 
+const COUNT_IN_MAX = 16;
+
+// Zero is a legal count-in (it means off), so this can't reuse
+// clampPositiveInt. An empty string is "no number", not zero — Number('')
+// is 0, which would silently turn a cleared field into a valid value.
+function clampCountIn(value, fallback) {
+  if (value === null || (typeof value === 'string' && value.trim() === '')) return fallback;
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(COUNT_IN_MAX, Math.max(0, n));
+}
+
 function wasValueClamped(rawValue, clampedValue, decimals) {
   const n = Number(rawValue);
   if (!Number.isFinite(n)) return true;
@@ -3580,6 +3829,7 @@ const DEFAULT_STATE = {
       levels: [LEVEL_ACCENT, LEVEL_NORMAL, LEVEL_NORMAL, LEVEL_NORMAL],
     },
     patternEditorOpen: true,
+    countInBeats: 0,
   },
   metronome: { bpm: 120, percent: 100 },
   ramp: { startBpm: 80, stopBpm: 140, scaleMode: 'percent', scaleAmount: 2, stepBars: 4 },
@@ -3643,6 +3893,7 @@ function refreshAllInputsFromState() {
   document.getElementById('patternPreset').value = state.topBar.pattern.preset;
   document.getElementById('patternBeats').value = state.topBar.pattern.beats;
   document.getElementById('patternDivision').value = state.topBar.pattern.division;
+  document.getElementById('countInBeats').value = clampCountIn(state.topBar.countInBeats, DEFAULT_STATE.topBar.countInBeats);
   applyPatternEditorOpen();
   renderPatternGrid();
 
@@ -3728,6 +3979,18 @@ let isPlaying = false;
 let nextNoteTime = 0;
 let schedulerTimerId = null;
 let beatIndexInBar = 0;
+
+// Two counters because audio and screen disagree by up to SCHEDULE_AHEAD_SEC.
+// countInRemaining is the scheduler's: beats still to be handed to the audio
+// clock, decremented as each is scheduled. countInTotal fixes the length of
+// the run for the dot index. countInDisplayActive is the screen's: true from
+// Start until the first real beat's deferred callback fires, and the only
+// thing the hero guard and the pattern-resize guard read.
+let countInRemaining = 0;
+let countInTotal = 0;
+let countInDisplayActive = false;
+const HERO_LABEL_BPM = 'BPM';
+const HERO_LABEL_COUNT_IN = 'Count-in';
 
 const LOOKAHEAD_MS = 25;
 const SCHEDULE_AHEAD_SEC = 0.1;
@@ -3949,6 +4212,9 @@ function updatePracticeReadout(explicitSegment) {
 }
 
 function updateHeroBpm(explicitBpm) {
+  // The hero is showing the count-in countdown; a tempo nudge mid-count-in
+  // would otherwise overwrite it with a BPM that has not started yet.
+  if (isPlaying && countInDisplayActive) return;
   const el = document.getElementById('heroBpm');
   let bpm = explicitBpm;
   if (bpm === undefined) {
@@ -3981,8 +4247,39 @@ function advanceModeAfterBeat() {
   }
 }
 
+// One count-in beat: a single normal-level click on the beat, the pattern
+// ignored (like a practice break), at the tempo of the first real beat. It
+// advances nothing — no bar position, no ramp step, no practice phase — so the
+// run begins exactly where it would have with no count-in. Same
+// capture-before-advance rule as scheduleBeat: everything the deferred
+// callback shows is captured here, before countInRemaining is decremented.
+function scheduleCountInBeat(time, bpm) {
+  const remaining = countInRemaining;
+  const dotIndex = countInTotal - remaining;
+  const scheduledTab = state.topBar.activeTab;
+  const runId = playbackRunId;
+  // The playhead ring gets -1: no slot should light while the pattern is not playing.
+  pushPlayheadEntry(time, -1);
+  scheduleClick(time, LEVEL_NORMAL);
+
+  const ctx = ensureAudioContext();
+  setTimeout(() => {
+    if (!isPlaying || runId !== playbackRunId || state.topBar.activeTab !== scheduledTab) return;
+    flashBeatIndicator(dotIndex, false);
+    document.getElementById('heroBpm').textContent = remaining;
+    document.getElementById('heroBpmLabel').textContent = HERO_LABEL_COUNT_IN;
+  }, Math.max(0, (time - ctx.currentTime) * 1000));
+
+  countInRemaining--;
+  nextNoteTime = time + beatIntervalSeconds(bpm);
+}
+
 function scheduleBeat(time) {
   const bpm = currentModeBpm();
+  if (countInRemaining > 0) {
+    scheduleCountInBeat(time, bpm);
+    return;
+  }
   const beatIndex = beatIndexInBar;
   const scheduledTab = state.topBar.activeTab;
   const isPracticeMode = scheduledTab === 'practice' && practiceRuntime;
@@ -4023,10 +4320,23 @@ function scheduleBeat(time) {
     ? (isPracticeBreak ? practiceRuntime.breakBeats : practiceRuntime.beatsPerPhase)
     : null;
   const dotRuntime = isPracticeMode ? practiceRuntime : null;
+  // Only the first real beat after a count-in has anything to undo, and it is
+  // the only one that can see the flag set: every count-in beat is scheduled
+  // before it, and their callbacks fire in time order.
+  const leavesCountIn = countInDisplayActive;
+  const runId = playbackRunId;
 
   const ctx = ensureAudioContext();
   setTimeout(() => {
     if (!isPlaying || state.topBar.activeTab !== scheduledTab) return;
+    if (leavesCountIn && runId === playbackRunId && countInDisplayActive) {
+      // Hand the screen back to the run: clear the flag first, since
+      // updateHeroBpm below refuses to write while it is set. The dot row goes
+      // back to the bar (or, in Practice, the phase) the count-in replaced.
+      countInDisplayActive = false;
+      document.getElementById('heroBpmLabel').textContent = HERO_LABEL_BPM;
+      renderDotRow(dotCount !== null ? dotCount : state.topBar.pattern.beats);
+    }
     if (dotCount !== null && practiceRuntime === dotRuntime
         && document.getElementById('beatIndicator').children.length !== dotCount) {
       renderDotRow(dotCount);
@@ -4102,6 +4412,18 @@ function startPlayback() {
   beatIndexInBar = 0;
   startPlayhead();
   nextNoteTime = ctx.currentTime + 0.05;
+  // Clamped here as well as in the setter: a hand-edited or corrupt save can
+  // put anything in this field, and it is read straight into the scheduler.
+  countInTotal = clampCountIn(state.topBar.countInBeats, DEFAULT_STATE.topBar.countInBeats);
+  countInRemaining = countInTotal;
+  countInDisplayActive = countInTotal > 0;
+  if (countInDisplayActive) {
+    // Show the countdown at once rather than waiting for the first beat's
+    // callback, so Start never leaves the old bar row on screen for a moment.
+    renderDotRow(countInTotal);
+    document.getElementById('heroBpm').textContent = countInTotal;
+    document.getElementById('heroBpmLabel').textContent = HERO_LABEL_COUNT_IN;
+  }
   if (state.topBar.activeTab === 'ramp') {
     rampRuntime = {
       currentBpm: clampBpm(state.ramp.startBpm),
@@ -4118,7 +4440,9 @@ function startPlayback() {
       breakBeats: state.practice.breakBeats,
       index: 0,
     };
-    renderDotRow(practiceRuntime.beatsPerPhase);
+    // Under a count-in the row is already showing the countdown; the first
+    // real beat swaps the phase row in.
+    if (!countInDisplayActive) renderDotRow(practiceRuntime.beatsPerPhase);
     updatePracticeReadout();
   }
   schedulerTick();
@@ -4131,6 +4455,15 @@ function stopPlayback() {
   clearTimeout(schedulerTimerId);
   stopPlayhead();
   setTransportState(false);
+  // Stopped mid-count-in: the hero still reads the countdown and nothing else
+  // rewrites it on stop, so put the tempo and its label back.
+  const wasCountingIn = countInDisplayActive;
+  countInRemaining = 0;
+  countInDisplayActive = false;
+  if (wasCountingIn) {
+    document.getElementById('heroBpmLabel').textContent = HERO_LABEL_BPM;
+    updateHeroBpm();
+  }
   updatePracticeReadout();
   renderDotRow(state.topBar.pattern.beats);
   const flash = document.getElementById('beatFlash');
@@ -4197,6 +4530,7 @@ const QUICK_SELECT_PRESETS = {
   scaleAmount: [1, 2, 3, 5, 10],
   bars: [1, 2, 4, 8],
   breakBeats: [2, 4, 8, 16],
+  countIn: [0, 1, 2, 4, 8],
   patternBeats: [2, 3, 4, 5, 6, 7, 8, 12, 16],
   patternDivision: [1, 2, 3, 4, 5, 6, 8],
 };
@@ -4413,13 +4747,13 @@ function renderPatternGrid() {
 }
 
 function applyPatternEditorOpen() {
-  const open = state.topBar.patternEditorOpen !== false;
+  const expanded = state.topBar.patternEditorOpen !== false;
   const toggle = document.getElementById('patternToggle');
   // #patternBody, not #patternGrid — the legend collapses with the grid it
   // explains, and the CSS carries the matching [hidden] rule.
-  document.getElementById('patternBody').hidden = !open;
-  toggle.setAttribute('aria-expanded', String(open));
-  toggle.textContent = open ? 'Hide' : 'Show';
+  document.getElementById('patternBody').hidden = !expanded;
+  toggle.setAttribute('aria-expanded', String(expanded));
+  toggle.textContent = expanded ? 'Hide' : 'Show';
 }
 
 function bindPatternEditor() {
@@ -4461,7 +4795,11 @@ function bindPatternEditor() {
     // replaced by a bar-sized row. Everywhere else the row has to follow the
     // new beat count immediately, or it disagrees with the audio — and
     // flashBeatIndicator finds no dot for the beats past the old end.
-    if (!isPlaying || state.topBar.activeTab !== 'practice') renderDotRow(pattern.beats);
+    // A count-in row is the same story: it is counting down, not showing the
+    // bar, and the first real beat swaps the bar's row in itself.
+    if (!isPlaying || (state.topBar.activeTab !== 'practice' && !countInDisplayActive)) {
+      renderDotRow(pattern.beats);
+    }
   }
 
   function setBeats(value) {
@@ -4626,6 +4964,32 @@ function bindPatternEditor() {
 }
 
 bindPatternEditor();
+
+// A transport setting, not a property of the pattern, so it sits on topBar
+// rather than topBar.pattern and is bound here rather than in the editor. Bound
+// after QUICK_SELECT_PRESETS exists, like bindPatternEditor, for the same
+// temporal-dead-zone reason.
+function bindCountIn() {
+  const countIn = document.getElementById('countInBeats');
+
+  function setCountIn(value) {
+    const clamped = clampCountIn(value, DEFAULT_STATE.topBar.countInBeats);
+    if (wasValueClamped(value, clamped, 0)) flashClamped(countIn);
+    state.topBar.countInBeats = clamped;
+    countIn.value = clamped;
+  }
+
+  countIn.addEventListener('change', () => { setCountIn(countIn.value); persistState(); });
+  attachQuickSelect(countIn, QUICK_SELECT_PRESETS.countIn, (v) => { setCountIn(v); persistState(); });
+  document.querySelector('.countin-field').querySelectorAll('.step-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      setCountIn(Number(countIn.value) + Number(btn.dataset.step));
+      persistState();
+    });
+  });
+}
+
+bindCountIn();
 
 function bindMetronomeTab() {
   const bpm = document.getElementById('metronomeBpm');

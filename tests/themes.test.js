@@ -217,6 +217,20 @@ test('no outline suppression outranks the shared focus-visible ring', () => {
     assert.ok(order.indexOf(suppressionLayer) <= order.indexOf(ringLayer),
       `"outline: none" in @layer ${suppressionLayer} outranks the focus ring in @layer ${ringLayer}`);
   }
+
+  // The stronger guarantee, and the reason the layer check above can never fire
+  // for rules written this way: every suppression has to be scoped to focus that
+  // is not keyboard focus. A selector ending in :focus:not(:focus-visible)
+  // cannot match an element the ring matches, so the two never compete. A bare
+  // `outline: none` on a control (what the range slider once had) is what
+  // removes keyboard focus indicators.
+  for (const offset of noneOffsets) {
+    const open = STYLE.lastIndexOf('{', offset);
+    const selectorStart = Math.max(STYLE.lastIndexOf('}', open), STYLE.lastIndexOf(';', open), STYLE.lastIndexOf('{', open - 1)) + 1;
+    const selector = STYLE.slice(selectorStart, open).trim();
+    assert.ok(selector.includes(':not(:focus-visible)'),
+      `"outline: none" in "${selector.slice(0, 80)}" is not scoped to :focus:not(:focus-visible); it would hide the keyboard focus ring`);
+  }
 });
 
 test('every control that suppresses its outline still declares a focus ring', () => {
@@ -225,4 +239,96 @@ test('every control that suppresses its outline still declares a focus ring', ()
     assert.ok(ring.includes(control + ':focus-visible'),
       `${control} has no :focus-visible ring; keyboard focus would be invisible`);
   }
+});
+
+test('a theme that lets .stepper-row wrap restates no-wrap for the two fixed steppers', () => {
+  // The pattern header and the count-in field both need their "+" beside the
+  // input. Their no-wrap rule lives in components, and a themes-layer
+  // .stepper-row outranks it whatever its specificity, so any theme that sets
+  // flex-wrap there has to say nowrap again for these two itself.
+  const themed = [...STYLE.matchAll(/:root\[data-theme="([\w-]+)"\]\s+\.stepper-row\s*\{([^}]*)\}/g)]
+    .filter((m) => /flex-wrap\s*:\s*wrap/.test(m[2]))
+    .map((m) => m[1]);
+  assert.ok(themed.length > 0, 'expected at least one theme to wrap .stepper-row (Grid Console does)');
+  for (const theme of themed) {
+    const restated = new RegExp(
+      String.raw`:root\[data-theme="${theme}"\]\s+:is\(#patternHeader,\s*\.countin-field\)\s+\.stepper-row\s*\{[^}]*flex-wrap\s*:\s*nowrap`
+    );
+    assert.ok(restated.test(STYLE), `${theme} wraps .stepper-row but does not restate nowrap for the pattern header and count-in`);
+  }
+});
+
+test('the joined stepper block comes after every theme rule it overrides and restates the states it erases', () => {
+  // One block gives every theme the same joined control, which only works if it
+  // is the last word: a themes-layer rule outranks components whatever its
+  // specificity, so a per-theme .step-btn / input / .stepper-row rule added
+  // AFTER it would quietly take its look back. And its `border: 0` erases the
+  // focus, clamp-flash and open-toggle states those themes restate for
+  // themselves, so the block has to say them again, once, for all of them.
+  const joinedAt = STYLE.indexOf(':root[data-theme] .stepper-row {');
+  assert.ok(joinedAt !== -1, 'the joined stepper block is missing');
+
+  const themed = /:root\[data-theme="[\w-]+"\][^{}]*(\.step-btn|\.tapTempo|\.quick-select-toggle|\.stepper-row|input\[type="number"\])[^{}]*\{/g;
+  const late = [...STYLE.matchAll(themed)].filter((m) => m.index > joinedAt).map((m) => m[0].trim().slice(0, 90));
+  assert.deepEqual(late, [], 'per-theme stepper rules sit after the joined block and would override it');
+
+  const block = STYLE.slice(joinedAt);
+  assert.ok(/\.stepper-row:has\(input\.clamped\)/.test(block), 'the clamp flash is not restated on the box');
+  assert.ok(/\.stepper-row:focus-within/.test(block), 'focus is not restated on the box');
+  assert.ok(/\.quick-select-toggle\[aria-expanded="true"\]/.test(block), 'the open quick-select toggle is not restated');
+  assert.ok(/outline-offset\s*:\s*-2px/.test(block), 'the focus ring is not pulled inside the clipping box');
+  assert.ok(!/outline\s*:/.test(block), 'the joined block must not declare outline; the shared ring does that');
+});
+
+// WCAG relative luminance and contrast ratio for a #rrggbb value.
+function luminance(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+function contrast(a, b) {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+test('every theme keeps --text-dim readable and still a tier below --text-muted', () => {
+  // --text-dim carries real information (beat numbers, the slot hint, inactive
+  // practice phases, inactive tabs, field labels), so it has to clear the AA
+  // floor for small text on the surfaces it sits on. It also has to stay
+  // visibly quieter than --text-muted, or the three-tier hierarchy collapses:
+  // raising dim toward muted without raising muted too is how that happens.
+  // The gap is a ratio of contrast ratios, so it is theme-independent.
+  const HEX = /^#[0-9a-fA-F]{6}$/;
+  for (const theme of rosterValues()) {
+    const block = themeBlock(theme);
+    const token = (name) => declaredValue(block, name);
+    const [dim, muted, panel, bg] = ['--text-dim', '--text-muted', '--panel', '--bg'].map(token);
+    for (const [name, value] of [['--text-dim', dim], ['--text-muted', muted], ['--panel', panel], ['--bg', bg]]) {
+      assert.ok(HEX.test(value || ''), `${theme}: ${name} must be a #rrggbb value for this check (got ${value})`);
+    }
+    assert.ok(contrast(dim, panel) >= 4.5, `${theme}: --text-dim is ${contrast(dim, panel).toFixed(2)}:1 on --panel, under 4.5:1`);
+    assert.ok(contrast(dim, bg) >= 4.5, `${theme}: --text-dim is ${contrast(dim, bg).toFixed(2)}:1 on --bg, under 4.5:1`);
+    const gap = contrast(muted, panel) / contrast(dim, panel);
+    assert.ok(gap >= 1.3, `${theme}: --text-muted is only ${gap.toFixed(2)}x the contrast of --text-dim on --panel; the tiers blur`);
+  }
+});
+
+test('nothing decorative can push the page sideways on a phone', () => {
+  // There is no browser under plain Node, so this guards the two causes found
+  // by measurement rather than the symptom. An absolutely positioned box counts
+  // as scrollable overflow however transparent it is, so Classic's hero glow
+  // (a ::before that used to run a fixed 3.5rem past the numeral each side)
+  // made every phone-width page scroll sideways by a constant 36px; and the
+  // masthead's title and theme select are a no-wrap row that cannot fit at 320px.
+  const glow = rulesWithSelector(':root[data-theme="classic"] #heroBpm::before');
+  assert.ok(glow.length >= 2, 'expected the glow rule and its two-column override');
+  for (const { body } of glow) {
+    const inset = (body.match(/inset\s*:\s*([^;]+);/) || [])[1] || '';
+    assert.ok(/max\(/.test(inset), `the glow's horizontal bleed must be capped by the room that exists, got "inset: ${inset}"`);
+  }
+  assert.ok(!/inset\s*:\s*-2\.5rem\s+-3\.5rem/.test(STYLE), 'a fixed 3.5rem bleed is back on the hero glow');
+
+  const masthead = rulesWithSelector('#masthead').find((r) => r.selector === '#masthead');
+  assert.ok(masthead, 'the base #masthead rule is missing');
+  assert.ok(/flex-wrap\s*:\s*wrap/.test(masthead.body), '#masthead must wrap so the theme select cannot be pushed off a 320px screen');
 });

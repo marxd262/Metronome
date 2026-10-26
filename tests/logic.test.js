@@ -218,6 +218,30 @@ test('clampPositiveInt rounds and passes through positive input', () => {
   assert.equal(clampPositiveInt(7, 4), 7);
 });
 
+test('clampCountIn allows 0 (count-in off) and rounds to a whole number of beats', () => {
+  const { clampCountIn } = loadLogic(['clampCountIn']);
+  assert.equal(clampCountIn(0, 0), 0);
+  assert.equal(clampCountIn(4, 0), 4);
+  assert.equal(clampCountIn(3.6, 0), 4);
+  assert.equal(clampCountIn('8', 0), 8);
+});
+
+test('clampCountIn pins out-of-range input to 0..COUNT_IN_MAX', () => {
+  const { clampCountIn, COUNT_IN_MAX } = loadLogic(['clampCountIn', 'COUNT_IN_MAX']);
+  assert.equal(COUNT_IN_MAX, 16);
+  assert.equal(clampCountIn(-3, 0), 0);
+  assert.equal(clampCountIn(17, 0), 16);
+  assert.equal(clampCountIn(9999, 0), 16);
+});
+
+test('clampCountIn returns the fallback for non-numeric input', () => {
+  const { clampCountIn } = loadLogic(['clampCountIn']);
+  assert.equal(clampCountIn('abc', 0), 0);
+  assert.equal(clampCountIn(undefined, 0), 0);
+  assert.equal(clampCountIn(NaN, 2), 2);
+  assert.equal(clampCountIn('', 2), 2);
+});
+
 test('wasValueClamped is false when the rounded raw value matches the clamped result', () => {
   const { wasValueClamped } = loadLogic(['wasValueClamped']);
   assert.equal(wasValueClamped(120, 120, 0), false);

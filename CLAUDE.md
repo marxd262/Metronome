@@ -171,6 +171,55 @@ field, the steppers, the quick-select, or the Up/Down keys. Reassigning
 way the Practice deferred callback checks `practiceRuntime`; every reader
 takes fields off whatever the variable currently points at.
 
+### Count-in
+
+`state.topBar.countInBeats` (0 = off, `COUNT_IN_MAX` 16, clamped by the pure
+`clampCountIn`, which exists because `clampPositiveInt` cannot return 0) plays
+that many beats after Start before the run proper. It is a branch at the top of
+`scheduleBeat` — `scheduleCountInBeat` — that clicks once per beat at the first
+real beat's tempo, ignores the pattern, and deliberately advances nothing: no
+`beatIndexInBar`, no `advanceModeAfterBeat()`. Keep it that way, or the real run
+starts somewhere other than where it would have with no count-in.
+
+The scheduler and the screen disagree by up to `SCHEDULE_AHEAD_SEC`, hence two
+flags: `countInRemaining` is the scheduler's, `countInDisplayActive` is the
+screen's, cleared by the first real beat's deferred callback (which also swaps
+the dot row back). `updateHeroBpm` and `afterPatternResize` both stand aside
+while the screen flag is set, so a tempo nudge or a beat-count change cannot
+overwrite the countdown. Its callback gates on `playbackRunId` like every other
+deferred per-beat callback.
+
+The field is `.countin-field` in `#topbar`, beside Sound, bound by `bindCountIn()`
+(called after `QUICK_SELECT_PRESETS` exists, for the same temporal-dead-zone
+reason as `bindPatternEditor`). It is a `<div>` with a `<label for>`, not a
+`<label>`: a label wrapping the stepper would forward a click on its text to the
+first button inside it, the − step. That also means Grid Console's
+`#topbar > label` cell rule does not reach it, so the theme gives
+`#topbar > .countin-field` the same padding explicitly. It used to sit in the
+pattern editor's header; it moved because it is a transport setting, and a
+fourth field there wrapped onto an orphaned row.
+
+The same change re-laid-out that header as a named-area grid: two equal columns,
+`preset` over `beats` and `meta` (the slot count and Hide) over `division`, with
+a wider gap between the columns than between rows so a label stays closer to its
+own field than to the one above. It reflows on `#patternEditor`'s own width
+through a container query rather than the viewport's, collapsing to a full-width
+Preset over two columns and then to one column below ~330px of content, where a
+column can no longer hold a stepper and a two-digit input. The top bar stacks
+Sound and Count-in the same way below 23rem, by placing `.topbar-field` across
+the grid, because every theme restates `#topbar`'s columns.
+
+Every field in those two places fills its column. The steppers keep their "+"
+beside the input and let the input take what the column has left, down to
+`--stepper-input-min`, rather than a fixed width: a fixed 52px input sat in
+170–500px of room and read as cramped beside empty space. The Sound select lost
+the 16rem cap it shared with the theme select for the same reason, since its
+neighbour now fills the column and a capped select left the two ragged. Grid
+Console wraps `.stepper-row` and gives the input a 4rem basis and a 3.5rem floor
+from the themes layer, which outranks components whatever the specificity, so it
+restates both for these two steppers; `tests/themes.test.js` fails any theme that
+wraps `.stepper-row` without doing the same.
+
 ### Global keyboard shortcuts
 
 Two, both on one document-level `keydown`: Space toggles the transport,
@@ -356,12 +405,71 @@ break without realizing it:
    declare `outline` and both match a focused control, so layer order
    picked the suppression and the ring never rendered — the range slider
    had no keyboard focus indicator at all, and the number inputs were
-   left with only a border-colour change. The ring now sits in
-   `components` below those rules, where its `:focus-visible` makes it
-   the more specific selector and it wins. Keep it there; no theme may
-   declare `outline` on a control. `tests/themes.test.js` enforces both
-   halves — that no `outline: none` outranks the ring's layer, and that
-   every control suppressing its outline still declares one.
+   left with only a border-colour change. The blanket `outline: none` is
+   gone: suppression now exists only as
+   `input:focus:not(:focus-visible), select:focus:not(:focus-visible)`
+   (and the range slider), i.e. for focus that is not keyboard focus, where
+   the browser's own ring is noise and the border colour already shows
+   focus. Nothing matching that selector can match the ring, so the two can
+   no longer compete in any layer — which also keeps the detector's
+   `outline: none` rule satisfied honestly. No theme may declare `outline`
+   on a control. `tests/themes.test.js` enforces that every
+   `outline: none` is scoped with `:not(:focus-visible)`, that none
+   outranks the ring's layer, and that every control still declares a ring.
+
+A fourth rule follows from the third, and it is the one deliberate exception to
+"a theme's structural overrides live with that theme": the **joined stepper
+control**. Every `.stepper-row` — buttons plus input — is one bordered box with
+hairline dividers and no gaps, in all five themes, so a field's controls read as
+one object instead of as boxes that happen to sit near each other. It is a
+single block at the very end of the `themes` layer, selected `:root[data-theme]`
+(which matches any theme) with enough added specificity to outrank each theme's
+own per-control rules, and being last it wins the ties. Two consequences:
+
+- **It must stay last.** A per-theme `.step-btn`, `.tapTempo`,
+  `.quick-select-toggle`, `.stepper-row` or number-input rule added after it
+  takes that look back. `tests/themes.test.js` fails any that is.
+- **Its `border: 0` erases the states those theme rules restate**, so the block
+  restates each once, on the box: focus (`:focus-within`), the clamp flash
+  (`:has(input.clamped)`, which has to win while the input is focused), the open
+  quick-select toggle, and the keyboard focus ring, pulled inside with
+  `outline-offset: -2px` because the box clips overflow to keep its rounded
+  corners and would hide a ring drawn outside. It still declares no `outline`.
+  The same test asserts all four are present.
+
+The box's border and radius come from `--divider` and `--radius`, so each theme
+still reads as itself; what no theme keeps is its own button bevel, glow or
+gap inside a stepper. Four other grouping treatments were prototyped in
+`experiments/field-grouping/` before this one was chosen.
+
+### Sideways overflow, and what counts as it
+
+The page must not scroll horizontally at any width from 320px up; it was
+checked across all five themes and all three tabs with a 400 BPM hero. Two
+things had broken that, and neither shows up in an element-box measurement:
+
+- **A transparent decoration still counts.** Classic's hero glow
+  (`#heroBpm::before`) is an absolutely positioned box that used to run a fixed
+  3.5rem past the numeral on each side. It fades to nothing at its own edge, but
+  scrollable overflow is about boxes, not pixels, so every phone-width page
+  scrolled sideways by 36px — in Classic only, which is how to tell it from the
+  masthead problem below. Its bleed is now capped at the room that exists: half
+  of what the viewport leaves beside a centred hero in one column, and in two
+  columns (where the hero sits against the right gutter, so viewport-centred
+  arithmetic would overclaim) the gutter plus whatever the centred body leaves
+  past `--content-max-width-wide`. Wherever there is room the full 3.5rem
+  applies, so wide layouts are unchanged. Any new decoration that bleeds past its
+  box needs the same treatment; `getBoundingClientRect()` will not see it, so
+  find it by hiding elements and watching `documentElement.scrollWidth`.
+- **The masthead is a wrapping flex row.** The title cannot shrink below its
+  longest unbreakable chunk and the theme select will not shrink at all, so at
+  320px they do not fit one row. Wrapping only happens when they genuinely do
+  not, so 390px and wider keep the single row.
+
+`tests/themes.test.js` fails if either fix is reverted. Under a coarse pointer
+every button, number input and select is 44px tall; the stepper buttons are
+32–37px wide because they share a row and a joined box, and the 26px pattern
+slots are a deliberate exception (see the pattern editor above).
 
 ## Project history and conventions
 
